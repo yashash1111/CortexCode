@@ -13,6 +13,7 @@ import MessageItem from '@/components/chat/MessageItem';
 import Composer from '@/components/chat/Composer';
 import ModeSelector, { ChatMode } from '@/components/chat/ModeSelector';
 import DragDropOverlay from '@/components/chat/DragDropOverlay';
+import BackgroundVideo from '@/components/BackgroundVideo';
 import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
