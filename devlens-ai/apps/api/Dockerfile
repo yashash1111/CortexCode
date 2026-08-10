@@ -2,20 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy monorepo package definition files
-COPY package.json package-lock.json ./
-COPY apps/api/package.json ./apps/api/
+# Copy package definitions
+COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
-# Copy API source code and packages
-COPY packages ./packages
-COPY apps/api ./apps/api
+# Copy source code and Prisma schema
+COPY . .
 
-WORKDIR /app/apps/api
-
-# Generate Prisma Client & compile TypeScript
+# Generate Prisma client and build TypeScript
 RUN npx prisma generate
 RUN npm run build
 

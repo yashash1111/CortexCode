@@ -2,18 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy monorepo package definition files
-COPY package.json package-lock.json ./
-COPY apps/web/package.json ./apps/web/
+# Copy package definitions
+COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
-# Copy web app source code and packages
-COPY packages ./packages
-COPY apps/web ./apps/web
-
-WORKDIR /app/apps/web
+# Copy web source code
+COPY . .
 
 # Build Next.js application
 RUN npm run build

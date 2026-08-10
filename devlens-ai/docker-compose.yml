@@ -3,8 +3,8 @@ version: '3.8'
 services:
   web:
     build:
-      context: .
-      dockerfile: ./apps/web/Dockerfile
+      context: ./apps/web
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     depends_on:
@@ -14,8 +14,8 @@ services:
       
   api:
     build:
-      context: .
-      dockerfile: ./apps/api/Dockerfile
+      context: ./apps/api
+      dockerfile: Dockerfile
     ports:
       - "3001:3001"
     depends_on:
