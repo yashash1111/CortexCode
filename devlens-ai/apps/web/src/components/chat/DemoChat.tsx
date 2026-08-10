@@ -6,6 +6,7 @@ import {
   Copy, Check, Download, Mic, MicOff, Paperclip, Bug, Lightbulb,
   FileText, ShieldCheck, MessageSquare, Info, ChevronRight,
   Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash
+} from 'lucide-react';
 import { getApiUrl } from '@/lib/apiConfig';
 
 interface Message {
