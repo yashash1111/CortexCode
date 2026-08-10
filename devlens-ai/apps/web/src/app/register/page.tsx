@@ -42,20 +42,35 @@ export default function RegisterPage() {
         password,
       });
 
-      if (response.data.success) {
-        if (response.data.data.accessToken) {
-          localStorage.setItem('accessToken', response.data.data.accessToken);
-        }
-        if (response.data.data.refreshToken) {
-          localStorage.setItem('refreshToken', response.data.data.refreshToken);
-        }
-        toast.showSuccess('Account Created!', 'Welcome to CortexCode AI Workspace!');
-        router.push('/workspace');
+      if (response.data?.success) {
+        // Save user info & prefill credentials for login page
+        localStorage.setItem('cortexcode_user', JSON.stringify({ name, email }));
+        sessionStorage.setItem('registered_credentials', JSON.stringify({ email, password }));
+        
+        toast.showSuccess('Account Created Successfully!', 'Redirecting to login to sign in...');
+        router.push('/login');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Registration failed';
+      let msg = 'Registration failed. Please try again.';
+      if (err.response?.data?.error) {
+        const errData = err.response.data.error;
+        if (typeof errData === 'string') {
+          msg = errData;
+        } else if (typeof errData.message === 'string') {
+          msg = errData.message;
+        } else if (Array.isArray(errData.issues)) {
+          msg = errData.issues.map((i: any) => i.message).join('. ');
+        } else if (typeof errData === 'object') {
+          msg = Object.values(errData).filter(v => typeof v === 'string').join('. ') || 'Invalid registration details';
+        }
+      } else if (err.message) {
+        msg = err.message;
+      }
+      
+      // Clean string formatting so no raw JSON object is shown to user
+      msg = String(msg).replace(/^\{|\}$|^\[|\]$/g, '').trim();
       setError(msg);
-      toast.showError('Registration Failed', msg);
+      toast.showError('Registration Notice', msg);
     } finally {
       setLoading(false);
     }
@@ -69,16 +84,18 @@ export default function RegisterPage() {
       const userEmail = user?.email || 'user.google@cortex.ai';
       const userName = user?.displayName || 'Google Developer';
 
+      localStorage.setItem('cortexcode_user', JSON.stringify({ name: userName, email: userEmail }));
+
       try {
         let res;
         try {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/register`, {
             name: userName,
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
         } catch (e) {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/login`, {
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
@@ -116,16 +133,18 @@ export default function RegisterPage() {
       const userEmail = user?.email || 'developer.github@cortex.ai';
       const userName = user?.displayName || 'GitHub Developer';
 
+      localStorage.setItem('cortexcode_user', JSON.stringify({ name: userName, email: userEmail }));
+
       try {
         let res;
         try {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/register`, {
             name: userName,
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
         } catch (e) {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/login`, {
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });

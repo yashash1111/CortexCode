@@ -133,8 +133,8 @@ export default function WorkspacePage() {
 
   // User Profile & Custom API Keys
   const [userProfile, setUserProfile] = useState({
-    name: 'Yashash R Gowda',
-    email: 'yashashyashash1@gmail.com',
+    name: 'Developer',
+    email: 'developer@cortex.ai',
     role: 'Software Engineer',
     plan: 'Pro Developer',
     apiKey: 'ctx_live_98a72b14c0094ef8a1e2',
@@ -148,8 +148,18 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('cortexcode_user_api_keys');
-      if (raw) setCustomApiKeys(JSON.parse(raw));
+      const rawUser = localStorage.getItem('cortexcode_user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        setUserProfile(prev => ({
+          ...prev,
+          name: u.name || prev.name,
+          email: u.email || prev.email,
+          role: u.role || prev.role
+        }));
+      }
+      const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
+      if (rawKeys) setCustomApiKeys(JSON.parse(rawKeys));
     } catch { /* ignore */ }
   }, []);
 

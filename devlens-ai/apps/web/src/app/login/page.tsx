@@ -9,6 +9,7 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
+import { useEffect } from 'react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -18,6 +19,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const toast = useToast();
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('registered_credentials');
+      if (saved) {
+        const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
+        if (savedEmail) setEmail(savedEmail);
+        if (savedPassword) setPassword(savedPassword);
+        sessionStorage.removeItem('registered_credentials');
+        toast.showInfo('Credentials Auto-filled', 'Account created! Click Sign In to launch your workspace.');
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,11 +47,21 @@ export default function LoginPage() {
       if (response.data.success) {
         localStorage.setItem('accessToken', response.data.data.accessToken);
         localStorage.setItem('refreshToken', response.data.data.refreshToken);
+        
+        const userData = response.data.data.user || { name: email.split('@')[0], email };
+        localStorage.setItem('cortexcode_user', JSON.stringify(userData));
+
         toast.showSuccess('Signed In Successfully!', 'Launching your AI developer workspace...');
         router.push('/workspace');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Login failed. Please check your credentials.';
+      let msg = 'Login failed. Please check your email and password.';
+      if (err.response?.data?.error) {
+        const errData = err.response.data.error;
+        if (typeof errData === 'string') msg = errData;
+        else if (typeof errData.message === 'string') msg = errData.message;
+      }
+      msg = String(msg).replace(/^\{|\}$|^\[|\]$/g, '').trim();
       setError(msg);
       toast.showError('Authentication Failed', msg);
     } finally {
@@ -53,15 +77,17 @@ export default function LoginPage() {
       const userEmail = user?.email || 'user.google@cortex.ai';
       const userName = user?.displayName || 'Google Developer';
 
+      localStorage.setItem('cortexcode_user', JSON.stringify({ name: userName, email: userEmail }));
+
       try {
         let res;
         try {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/login`, {
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
         } catch (e) {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/register`, {
             name: userName,
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
@@ -100,15 +126,17 @@ export default function LoginPage() {
       const userEmail = user?.email || 'developer.github@cortex.ai';
       const userName = user?.displayName || 'GitHub Developer';
 
+      localStorage.setItem('cortexcode_user', JSON.stringify({ name: userName, email: userEmail }));
+
       try {
         let res;
         try {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/login`, {
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
         } catch (e) {
-          res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
+          res = await axios.post(`${getApiUrl()}/api/auth/register`, {
             name: userName,
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
