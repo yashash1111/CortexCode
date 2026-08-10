@@ -7,7 +7,7 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(Number(PORT), '127.0.0.1', () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log('Background workers initialized');
 });
