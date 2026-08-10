@@ -21,12 +21,8 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [mounted, loading, isAuthenticated, router, pathname]);
 
-  // If initial local session exists, render children instantly
-  if (isAuthenticated) {
-    return <>{children}</>;
-  }
-
-  if (loading || !mounted) {
+  // Wait for client mount to avoid SSR hydration mismatch
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white">
         <Loader2 className="w-10 h-10 animate-spin text-purple-500 mb-4" />
@@ -35,5 +31,9 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   }
 
-  return null;
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <>{children}</>;
 };
