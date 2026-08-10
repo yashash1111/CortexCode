@@ -4,6 +4,7 @@ import { getApiUrl } from './apiConfig';
 export const apiClient = axios.create({
   baseURL: getApiUrl(),
   withCredentials: true,
+  timeout: 8000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -29,8 +30,14 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if error is 401 Unauthorized and not already retried
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/api/auth/login') && !originalRequest.url?.includes('/api/auth/register')) {
+    const isAuthRoute =
+      originalRequest?.url?.includes('/api/auth/login') ||
+      originalRequest?.url?.includes('/api/auth/register') ||
+      originalRequest?.url?.includes('/api/auth/me') ||
+      originalRequest?.url?.includes('/api/auth/refresh');
+
+    // Check if error is 401 Unauthorized and not an auth endpoint
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -50,7 +57,6 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError: any) {
         processQueue(refreshError);
-        // Clear local storage markers on refresh failure
         if (typeof window !== 'undefined') {
           localStorage.removeItem('cortexcode_user');
         }

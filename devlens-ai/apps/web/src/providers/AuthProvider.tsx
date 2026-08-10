@@ -27,25 +27,41 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cortexcode_user');
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState<boolean>(() => {
+    // If local user exists, don't block UI with loading spinner
+    if (typeof window !== 'undefined' && localStorage.getItem('cortexcode_user')) {
+      return false;
+    }
+    return true;
+  });
+
   const router = useRouter();
 
-  // Verify existing session on application startup
+  // Verify existing session on application startup with 2s timeout safeguard
   const checkAuth = useCallback(async () => {
     try {
-      const response = await apiClient.get('/api/auth/me');
+      const response = await apiClient.get('/api/auth/me', { timeout: 2500 });
       if (response.data?.success && response.data?.data?.user) {
         const currentUser = response.data.data.user;
         setUser(currentUser);
         if (typeof window !== 'undefined') {
           localStorage.setItem('cortexcode_user', JSON.stringify(currentUser));
         }
-      } else {
-        setUser(null);
       }
     } catch {
-      // Fallback check to stored session user if offline
+      // If server check fails or times out, rely on stored user or clear if no store
       if (typeof window !== 'undefined') {
         const stored = localStorage.getItem('cortexcode_user');
         if (stored) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { Loader2 } from 'lucide-react';
@@ -9,14 +9,24 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
   const { loading, isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !loading && !isAuthenticated) {
       router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [loading, isAuthenticated, router, pathname]);
+  }, [mounted, loading, isAuthenticated, router, pathname]);
 
-  if (loading) {
+  // If initial local session exists, render children instantly
+  if (isAuthenticated) {
+    return <>{children}</>;
+  }
+
+  if (loading || !mounted) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white">
         <Loader2 className="w-10 h-10 animate-spin text-purple-500 mb-4" />
@@ -25,9 +35,5 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  return <>{children}</>;
+  return null;
 };
