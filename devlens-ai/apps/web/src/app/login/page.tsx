@@ -217,7 +217,7 @@ function LoginContent() {
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button
             type="button"
-            onClick={handleGoogleFirebaseLogin}
+            onClick={handleGoogleOAuth}
             disabled={loading}
             className="flex items-center justify-center gap-2.5 py-3 px-4 bg-zinc-900/90 hover:bg-zinc-800 border border-white/15 hover:border-white/30 rounded-xl text-xs font-bold text-zinc-200 hover:text-white transition-all backdrop-blur-md disabled:opacity-50 shadow-sm"
           >
