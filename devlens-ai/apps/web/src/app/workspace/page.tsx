@@ -149,21 +149,33 @@ function WorkspaceContent() {
   });
 
   useEffect(() => {
+    if (user) {
+      setUserProfile(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+        role: user.role || prev.role
+      }));
+    } else {
+      try {
+        const rawUser = localStorage.getItem('cortexcode_user');
+        if (rawUser) {
+          const u = JSON.parse(rawUser);
+          setUserProfile(prev => ({
+            ...prev,
+            name: u.name || prev.name,
+            email: u.email || prev.email,
+            role: u.role || prev.role
+          }));
+        }
+      } catch { /* ignore */ }
+    }
+
     try {
-      const rawUser = localStorage.getItem('cortexcode_user');
-      if (rawUser) {
-        const u = JSON.parse(rawUser);
-        setUserProfile(prev => ({
-          ...prev,
-          name: u.name || prev.name,
-          email: u.email || prev.email,
-          role: u.role || prev.role
-        }));
-      }
       const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
       if (rawKeys) setCustomApiKeys(JSON.parse(rawKeys));
     } catch { /* ignore */ }
-  }, []);
+  }, [user]);
 
   // Scroll to bottom of chat
   useEffect(() => {
