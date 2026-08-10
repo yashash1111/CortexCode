@@ -7,6 +7,7 @@ import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Code2, User, Mail, Lock, GitBranch, Sparkles, ShieldCheck } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
+import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
 
 export default function RegisterPage() {
