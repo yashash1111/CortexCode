@@ -51,7 +51,7 @@ export default function RegisterPage() {
         toast.showSuccess('Account Created!', 'Welcome to CortexCode AI Workspace!');
         router.push('/workspace');
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       const msg = err.response?.data?.error?.message || 'Registration failed';
       setError(msg);
       toast.showError('Registration Failed', msg);

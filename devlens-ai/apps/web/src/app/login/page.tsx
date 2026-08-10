@@ -35,7 +35,7 @@ export default function LoginPage() {
         toast.showSuccess('Signed In Successfully!', 'Launching your AI developer workspace...');
         router.push('/workspace');
       }
-    } catch (err: unknown) {
+    } catch (err: any) {
       const msg = err.response?.data?.error?.message || 'Login failed. Please check your credentials.';
       setError(msg);
       toast.showError('Authentication Failed', msg);

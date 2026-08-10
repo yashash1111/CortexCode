@@ -4,6 +4,9 @@ venv
 __pycache__
 *.pyc
 
+# Cache & Local Home
+.home
+
 # Builds & Outputs
 dist
 build

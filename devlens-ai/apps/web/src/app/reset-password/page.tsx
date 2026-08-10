@@ -53,7 +53,7 @@ function ResetPasswordForm() {
       setTimeout(() => {
         router.push('/login');
       }, 2500);
-    } catch (err: unknown) {
+    } catch (err: any) {
       const msg = err.response?.data?.error?.message || 'Failed to reset password. The link may have expired.';
       setError(msg);
       toast.showError('Password Reset Failed', msg);
