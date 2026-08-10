@@ -1,0 +1,316 @@
+{
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/forgot-password/page.tsx": [
+    {
+      "line": 28,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/login/page.tsx": [
+    {
+      "line": 38,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 84,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 131,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 173,
+      "column": 21,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/register/page.tsx": [
+    {
+      "line": 54,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/reset-password/page.tsx": [
+    {
+      "line": 56,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/workspace/[repositoryId]/chat/page.tsx": [
+    {
+      "line": 84,
+      "column": 17,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 281,
+      "column": 19,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/workspace/page.tsx": [
+    {
+      "line": 41,
+      "column": 52,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 44,
+      "column": 43,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 57,
+      "column": 47,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 62,
+      "column": 69,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 64,
+      "column": 44,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 73,
+      "column": 23,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/workspace/page.tsx:73:23\n  71 |       const savedActiveId = localStorage.getItem(STORAGE_ACTIVE_KEY) || DEFAULT_CONV_ID;\n  72 |\n> 73 |       if (savedConvs) setConversations(JSON.parse(savedConvs));\n     |                       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  74 |       setActiveConvId(savedActiveId);\n  75 |\n  76 |       const savedMsgs = localStorage.getItem(msgKey(savedActiveId));"
+    },
+    {
+      "line": 146,
+      "column": 16,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/app/workspace/page.tsx:146:16\n  144 |     try {\n  145 |       const raw = localStorage.getItem('cortexcode_user_api_keys');\n> 146 |       if (raw) setCustomApiKeys(JSON.parse(raw));\n      |                ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  147 |     } catch { /* ignore */ }\n  148 |   }, []);\n  149 |"
+    },
+    {
+      "line": 185,
+      "column": 16,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 191,
+      "column": 66,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 198,
+      "column": 37,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 209,
+      "column": 37,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 584,
+      "column": 59,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/BackgroundVideo.tsx": [
+    {
+      "line": 15,
+      "column": 5,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/BackgroundVideo.tsx:15:5\n  13 |\n  14 |   useEffect(() => {\n> 15 |     setMounted(true);\n     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect\n  16 |   }, []);\n  17 |\n  18 |   return ("
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/chat/Composer.tsx": [
+    {
+      "line": 117,
+      "column": 34,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 126,
+      "column": 42,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 130,
+      "column": 37,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 137,
+      "column": 52,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 340,
+      "column": 56,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/chat/DemoChat.tsx": [
+    {
+      "line": 26,
+      "column": 49,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 170,
+      "column": 42,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 170,
+      "column": 79,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 179,
+      "column": 36,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/chat/Sidebar.tsx": [
+    {
+      "line": 19,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 62,
+      "column": 36,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 212,
+      "column": 77,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/workspace/CodeReviewView.tsx": [
+    {
+      "line": 17,
+      "column": 36,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 81,
+      "column": 36,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 134,
+      "column": 76,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/workspace/InterviewModeView.tsx": [
+    {
+      "line": 78,
+      "column": 26,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/workspace/InterviewModeView.tsx:78:26\n  76 |   useEffect(() => {\n  77 |     if (!timerRunning) return;\n> 78 |     if (timeLeft <= 0) { setTimerRunning(false); return; }\n     |                          ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  79 |     const id = setInterval(() => setTimeLeft(t => t - 1), 1000);\n  80 |     return () => clearInterval(id);\n  81 |   }, [timerRunning, timeLeft]);"
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/workspace/ProjectDashboard.tsx": [
+    {
+      "line": 11,
+      "column": 21,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/components/workspace/ProjectDashboard.tsx:11:21\n   9 |   const [value, setValue] = useState(0);\n  10 |   const [mounted, setMounted] = useState(false);\n> 11 |   useEffect(() => { setMounted(true); }, []);\n     |                     ^^^^^^^^^^ Avoid calling setState() directly within an effect\n  12 |   useEffect(() => {\n  13 |     if (!mounted) return;\n  14 |     let start = 0;"
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/hooks/useSpeechRecognition.ts": [
+    {
+      "line": 25,
+      "column": 33,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 29,
+      "column": 18,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 29,
+      "column": 55,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 30,
+      "column": 5,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/hooks/useSpeechRecognition.ts:30:5\n  28 |     const SpeechRecognition =\n  29 |       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;\n> 30 |     setIsSupported(!!SpeechRecognition);\n     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  31 |\n  32 |     if (SpeechRecognition) {\n  33 |       const recognition = new SpeechRecognition();"
+    },
+    {
+      "line": 45,
+      "column": 38,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    },
+    {
+      "line": 70,
+      "column": 37,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/hooks/useTextToSpeech.ts": [
+    {
+      "line": 22,
+      "column": 5,
+      "ruleId": "react-hooks/set-state-in-effect",
+      "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/hooks/useTextToSpeech.ts:22:5\n  20 |\n  21 |   useEffect(() => {\n> 22 |     setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);\n     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  23 |     return () => {\n  24 |       window.speechSynthesis?.cancel();\n  25 |     };"
+    }
+  ],
+  "/Users/yashashrgowda/Desktop/CortexCode/devlens-ai/apps/web/src/lib/workspaceApi.ts": [
+    {
+      "line": 109,
+      "column": 107,
+      "ruleId": "@typescript-eslint/no-explicit-any",
+      "message": "Unexpected any. Specify a different type."
+    }
+  ]
+}

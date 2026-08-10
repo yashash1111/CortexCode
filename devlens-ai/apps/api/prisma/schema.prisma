@@ -1,0 +1,426 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  githubAccount  GitHubAccount?
+  refreshTokens  RefreshToken[]
+  repositories   Repository[]
+  activityLogs   ActivityLog[]
+  conversations  Conversation[]
+  aiAnalyses     AIAnalysis[]
+  aiUsages       AIUsage[]
+  documentations Documentation[]
+  teamMembers    TeamMember[]
+  comments       Comment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GitHubAccount {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  githubUserId         String   @unique
+  username             String
+  accessTokenEncrypted String
+  avatarUrl            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members      TeamMember[]
+  repositories TeamRepository[]
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  role      String   // Owner, Admin, Member, Viewer
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model TeamRepository {
+  id           String   @id @default(uuid())
+  teamId       String
+  repositoryId String
+  createdAt    DateTime @default(now())
+
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, repositoryId])
+}
+
+model Repository {
+  id             String    @id @default(uuid())
+  userId         String
+  githubId       String    @unique
+  name           String
+  fullName       String
+  description    String?
+  owner          String
+  defaultBranch  String
+  private        Boolean
+  language       String?
+  stars          Int       @default(0)
+  forks          Int       @default(0)
+  githubUrl      String
+  lastAnalyzedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files          RepositoryFile[]
+  activityLogs   ActivityLog[]
+  codeChunks     CodeChunk[]
+  conversations  Conversation[]
+  aiAnalyses     AIAnalysis[]
+  aiUsages       AIUsage[]
+  documentations Documentation[]
+  jobs           Job[]
+  teamMappings   TeamRepository[]
+  pullRequests   PullRequest[]
+  securityFindings SecurityFinding[]
+  dependencyFindings DependencyFinding[]
+  comments       Comment[]
+  webhookEvents  WebhookEvent[]
+  auditLogs      AuditLog[]
+  notes          RepositoryNote[]
+  memories       Memory[]
+}
+
+model RepositoryFile {
+  id           String   @id @default(uuid())
+  repositoryId String
+  path         String
+  name         String
+  extension    String?
+  language     String?
+  size         Int
+  lineCount    Int?
+  content      String?  @db.Text
+  isBinary     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+  @@index([path])
+  @@index([language])
+}
+
+model ActivityLog {
+  id           String   @id @default(uuid())
+  userId       String
+  repositoryId String?
+  action       String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository Repository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+}
+
+model CodeChunk {
+  id           String   @id @default(uuid())
+  repositoryId String
+  fileId       String
+  content      String   @db.Text
+  filePath     String
+  language     String?
+  symbolName   String?
+  startLine    Int?
+  endLine      Int?
+  chunkIndex   Int
+  tokenCount   Int
+  embedding    Unsupported("vector(1536)")?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+  @@index([fileId])
+}
+
+model Conversation {
+  id           String   @id @default(uuid())
+  repositoryId String
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages   Message[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String
+  content        String   @db.Text
+  sources        Json?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model AIAnalysis {
+  id           String   @id @default(uuid())
+  repositoryId String
+  userId       String
+  type         String
+  targetFileId String?
+  result       Json
+  createdAt    DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AIUsage {
+  id           String   @id @default(uuid())
+  userId       String
+  repositoryId String?
+  requestType  String
+  inputTokens  Int
+  outputTokens Int
+  estimatedCost Float
+  model        String
+  createdAt    DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository Repository? @relation(fields: [repositoryId], references: [id], onDelete: SetNull)
+}
+
+model Documentation {
+  id           String   @id @default(uuid())
+  repositoryId String
+  type         String
+  title        String
+  content      String   @db.Text
+  version      String
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id           String    @id @default(uuid())
+  repositoryId String
+  type         String
+  status       String
+  progress     Int       @default(0)
+  total        Int       @default(0)
+  processed    Int       @default(0)
+  error        String?   @db.Text
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model PullRequest {
+  id           String   @id @default(uuid())
+  repositoryId String
+  githubId     String
+  number       Int
+  title        String
+  description  String?  @db.Text
+  author       String
+  sourceBranch String
+  targetBranch String
+  status       String
+  githubUrl    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  reviews    PullRequestReview[]
+}
+
+model PullRequestReview {
+  id            String   @id @default(uuid())
+  pullRequestId String
+  status        String
+  summary       String?  @db.Text
+  score         Int?
+  model         String?
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  findings    ReviewFinding[]
+}
+
+model ReviewFinding {
+  id             String   @id @default(uuid())
+  reviewId       String
+  filePath       String
+  startLine      Int?
+  endLine        Int?
+  severity       String
+  category       String
+  title          String
+  description    String   @db.Text
+  recommendation String?  @db.Text
+  confidence     Float?
+
+  review PullRequestReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+model SecurityFinding {
+  id             String   @id @default(uuid())
+  repositoryId   String
+  fileId         String?
+  category       String
+  severity       String
+  title          String
+  description    String   @db.Text
+  startLine      Int?
+  endLine        Int?
+  evidence       String?  @db.Text
+  recommendation String?  @db.Text
+  status         String
+  confidence     Float?
+  createdAt      DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model DependencyFinding {
+  id             String   @id @default(uuid())
+  repositoryId   String
+  name           String
+  version        String
+  type           String
+  risk           String
+  vulnerabilities Json?
+  createdAt      DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id           String   @id @default(uuid())
+  userId       String
+  repositoryId String
+  targetType   String
+  targetId     String
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  content   String   @db.Text
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WebhookEvent {
+  id               String   @id @default(uuid())
+  githubDeliveryId String   @unique
+  eventType        String
+  repositoryId     String?
+  payloadHash      String
+  status           String
+  receivedAt       DateTime @default(now())
+  processedAt      DateTime?
+
+  repository Repository? @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  action       String
+  targetType   String?
+  targetId     String?
+  repositoryId String?
+  metadata     Json?
+  timestamp    DateTime @default(now())
+
+  actor      User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  repository Repository? @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model RepositoryNote {
+  id           String   @id @default(uuid())
+  repositoryId String
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model Memory {
+  id           String   @id @default(uuid())
+  repositoryId String
+  key          String
+  value        String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  @@unique([repositoryId, key])
+}
