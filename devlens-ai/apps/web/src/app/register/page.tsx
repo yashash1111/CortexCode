@@ -7,7 +7,7 @@ import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Code2, User, Mail, Lock, GitBranch, Sparkles, ShieldCheck } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
-import { useToast } from '@/providers/ToastProvider';
+import { getApiUrl } from '@/lib/apiConfig';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -35,7 +35,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
+      const response = await axios.post(`${getApiUrl()}/api/auth/register`, {
         name,
         email,
         password,

@@ -7,7 +7,7 @@ import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Zap, Lock, Mail, GitBranch } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
-import { useToast } from '@/providers/ToastProvider';
+import { getApiUrl } from '@/lib/apiConfig';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,7 +24,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+      const response = await axios.post(`${getApiUrl()}/api/auth/login`, {
         email,
         password,
       });

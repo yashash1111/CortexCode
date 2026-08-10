@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { getApiUrl } from './apiConfig';
+
+const API_BASE = getApiUrl();
 
 export interface WorkspaceIssue {
   id: string;
