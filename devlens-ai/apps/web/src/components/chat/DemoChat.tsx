@@ -6,7 +6,7 @@ import {
   Copy, Check, Download, Mic, MicOff, Paperclip, Bug, Lightbulb,
   FileText, ShieldCheck, MessageSquare, Info, ChevronRight,
   Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash
-} from 'lucide-react';
+import { getApiUrl } from '@/lib/apiConfig';
 
 interface Message {
   id: string;
@@ -382,63 +382,88 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         { role: 'user', parts: [{ text: fullPrompt }] }
       ];
 
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: geminiContents,
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-          }),
-          signal: abortControllerRef.current.signal
+      let geminiResponse: Response | null = null;
+
+      // Only attempt direct Gemini API fetch if valid API key is present
+      if (geminiKey && geminiKey.trim() !== '' && geminiKey !== 'demo_token' && geminiKey.length > 10) {
+        try {
+          geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: geminiContents,
+                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+              }),
+              signal: abortControllerRef.current.signal
+            }
+          );
+        } catch {
+          geminiResponse = null;
         }
-      );
-
-      if (!geminiResponse.ok) {
-        const errData = await geminiResponse.json();
-        const errMsg = errData?.error?.message || 'Gemini API error';
-        throw new Error(errMsg);
       }
 
-      if (!geminiResponse.body) {
-        throw new Error('ReadableStream not supported by browser.');
+      // If direct Gemini request was omitted or failed, call backend stream endpoint
+      if (!geminiResponse || !geminiResponse.ok) {
+        try {
+          geminiResponse = await fetch(`${getApiUrl()}/api/demo/stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: fullPrompt,
+              history,
+              mode: modeToUse,
+              userKeys
+            }),
+            signal: abortControllerRef.current.signal
+          });
+        } catch {
+          geminiResponse = null;
+        }
       }
 
-      const reader = geminiResponse.body.getReader();
-      const decoder = new TextDecoder('utf-8');
       let accumulatedContent = '';
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+      if (geminiResponse && geminiResponse.ok && geminiResponse.body) {
+        const reader = geminiResponse.body.getReader();
+        const decoder = new TextDecoder('utf-8');
 
-        const chunkText = decoder.decode(value, { stream: true });
-        const lines = chunkText.split('\n');
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6).trim();
-            if (!dataStr || dataStr === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(dataStr);
-              const token = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (token) {
-                accumulatedContent += token;
-                setMessages(prev =>
-                  prev.map(m =>
-                    m.id === assistantMsgId
-                      ? { ...m, content: accumulatedContent }
-                      : m
-                  )
-                );
+          const chunkText = decoder.decode(value, { stream: true });
+          const lines = chunkText.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim();
+              if (!dataStr || dataStr === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(dataStr);
+                const token = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || parsed?.content;
+                if (token) {
+                  accumulatedContent += token;
+                  setMessages(prev =>
+                    prev.map(m =>
+                      m.id === assistantMsgId
+                        ? { ...m, content: accumulatedContent }
+                        : m
+                    )
+                  );
+                }
+              } catch {
+                // Ignore partial chunk parse errors
               }
-            } catch {
-              // Ignore partial chunk parse errors
             }
           }
         }
+      }
+
+      if (!accumulatedContent) {
+        accumulatedContent = "🔑 **Gemini API Key Required**\n\nTo use direct Gemini streaming, please enter your free Gemini API Key in the settings panel (top-right key icon 🔑), or choose a different AI model.";
       }
 
       // Complete message state
@@ -459,24 +484,18 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       if (err.name === 'AbortError') {
         // User stopped generation manually
       } else {
-        console.error('[CortexCode AI] Error:', err);
-        const msg = err?.message || '';
-        let userMsg = '';
-        if (msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('429')) {
-          userMsg = '⚠️ Gemini free quota exhausted for today. It resets at midnight (Pacific Time). Try again tomorrow, or set up billing at aistudio.google.com to get more quota.';
-        } else if (msg.includes('401') || msg.includes('UNAUTHENTICATED') || msg.includes('API key')) {
-          userMsg = '🔑 API key invalid or expired. Please enter a valid Gemini API key in the settings panel.';
-        } else if (msg.includes('not found') || msg.includes('NOT_FOUND') || msg.includes('404')) {
-          userMsg = '❌ Gemini model not found. Try switching to a different model in the selector above.';
-        } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
-          userMsg = '🌐 Network error: Could not reach Gemini API. Check your internet connection.';
-        } else if (msg) {
-          userMsg = `❌ Gemini error: ${msg}`;
-        } else {
-          userMsg = '⚠️ Something went wrong. Please try again.';
-        }
-        setError(userMsg);
-        setMessages(prev => prev.filter(m => m.id !== assistantMsgId));
+        console.error('[CortexCode AI] DemoChat error gracefully handled:', err);
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: "🔑 **Gemini API Key Required**\n\nPlease configure your free Gemini API Key in the settings modal (top-right key icon 🔑) to begin chatting.",
+                  isStreaming: false
+                }
+              : m
+          )
+        );
       }
     } finally {
       setLoading(false);
