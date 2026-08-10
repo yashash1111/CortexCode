@@ -1,5 +1,5 @@
 // Dynamic Lazy-Loaded Firebase Authentication Module
-// Completely bypasses IndexedDB and module-hoisting database errors in Next.js development HMR
+// Always prompts account chooser so users can pick any Google or GitHub account
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDmuiEdWy8GHLY4HnTsDtypj4Nhgy8dLSo",
@@ -11,104 +11,90 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-Q5QK62EWXC"
 };
 
-// Google Sign-In Provider (Dynamically Imported)
+// Google Sign-In Provider (Always forces account chooser)
 export async function signInWithGoogleFirebase() {
   if (typeof window === 'undefined') {
-    return {
-      user: { displayName: "Google User", email: "user.google@cortex.ai", photoURL: "" },
-      token: "demo_token"
-    };
+    throw new Error('Google Sign-In is only supported in browser environments');
   }
 
+  const { initializeApp, getApps, getApp } = await import("firebase/app");
+  const { initializeAuth, inMemoryPersistence, setPersistence, GoogleAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
+
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  
+  let auth;
   try {
-    const { initializeApp, getApps, getApp } = await import("firebase/app");
-    const { initializeAuth, inMemoryPersistence, setPersistence, GoogleAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
-
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    
-    let auth;
-    try {
-      auth = getAuth(app);
-    } catch (e) {
-      auth = initializeAuth(app, {
-        persistence: inMemoryPersistence
-      });
-    }
-
-    // Force persistence change to inMemoryPersistence to prevent IndexedDB writing after popup sign-in
-    await setPersistence(auth, inMemoryPersistence);
-
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const idToken = await result.user.getIdToken();
-    return {
-      user: {
-        displayName: result.user.displayName || "Google User",
-        email: result.user.email || "user.google@cortex.ai",
-        photoURL: result.user.photoURL || ""
-      },
-      token: idToken
-    };
-  } catch (error) {
-    console.error("Firebase Google Auth Error:", error);
-    return {
-      user: {
-        displayName: "Google User",
-        email: "user.google@cortex.ai",
-        photoURL: ""
-      },
-      token: "demo_firebase_token"
-    };
+    auth = getAuth(app);
+  } catch (e) {
+    auth = initializeAuth(app, {
+      persistence: inMemoryPersistence
+    });
   }
+
+  await setPersistence(auth, inMemoryPersistence);
+
+  const provider = new GoogleAuthProvider();
+  // Force account chooser prompt so user can choose any Google / Gmail account
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const result = await signInWithPopup(auth, provider);
+  const idToken = await result.user.getIdToken();
+  const userEmail = result.user.email || result.user.providerData[0]?.email;
+  
+  if (!userEmail) {
+    throw new Error('Selected Google account did not return a valid email address');
+  }
+
+  return {
+    user: {
+      displayName: result.user.displayName || userEmail.split('@')[0],
+      email: userEmail,
+      photoURL: result.user.photoURL || ""
+    },
+    token: idToken
+  };
 }
 
-// GitHub Sign-In Provider (Dynamically Imported)
+// GitHub Sign-In Provider (Always forces account chooser)
 export async function signInWithGitHubFirebase() {
   if (typeof window === 'undefined') {
-    return {
-      user: { displayName: "GitHub Developer", email: "developer.github@cortex.ai", photoURL: "" },
-      token: "demo_token"
-    };
+    throw new Error('GitHub Sign-In is only supported in browser environments');
   }
 
+  const { initializeApp, getApps, getApp } = await import("firebase/app");
+  const { initializeAuth, inMemoryPersistence, setPersistence, GithubAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
+
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  
+  let auth;
   try {
-    const { initializeApp, getApps, getApp } = await import("firebase/app");
-    const { initializeAuth, inMemoryPersistence, setPersistence, GithubAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
-
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    
-    let auth;
-    try {
-      auth = getAuth(app);
-    } catch (e) {
-      auth = initializeAuth(app, {
-        persistence: inMemoryPersistence
-      });
-    }
-
-    // Force persistence change to inMemoryPersistence to prevent IndexedDB writing after popup sign-in
-    await setPersistence(auth, inMemoryPersistence);
-
-    const provider = new GithubAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const idToken = await result.user.getIdToken();
-    return {
-      user: {
-        displayName: result.user.displayName || "GitHub Developer",
-        email: result.user.email || "developer.github@cortex.ai",
-        photoURL: result.user.photoURL || ""
-      },
-      token: idToken
-    };
-  } catch (error) {
-    console.error("Firebase GitHub Auth Error:", error);
-    return {
-      user: {
-        displayName: "GitHub Developer",
-        email: "developer.github@cortex.ai",
-        photoURL: ""
-      },
-      token: "demo_firebase_token"
-    };
+    auth = getAuth(app);
+  } catch (e) {
+    auth = initializeAuth(app, {
+      persistence: inMemoryPersistence
+    });
   }
+
+  await setPersistence(auth, inMemoryPersistence);
+
+  const provider = new GithubAuthProvider();
+  // Force account chooser prompt
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const result = await signInWithPopup(auth, provider);
+  const idToken = await result.user.getIdToken();
+  const userEmail = result.user.email || result.user.providerData[0]?.email;
+
+  if (!userEmail) {
+    throw new Error('Selected GitHub account did not return a public email address');
+  }
+
+  return {
+    user: {
+      displayName: result.user.displayName || userEmail.split('@')[0],
+      email: userEmail,
+      photoURL: result.user.photoURL || ""
+    },
+    token: idToken
+  };
 }
