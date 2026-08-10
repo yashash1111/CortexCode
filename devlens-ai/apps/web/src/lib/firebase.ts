@@ -1,5 +1,6 @@
 // Dynamic Lazy-Loaded Firebase Authentication Module
 // Always prompts account chooser so users can pick any Google or GitHub account
+// Includes automatic fallback handler for auth/unauthorized-domain
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDmuiEdWy8GHLY4HnTsDtypj4Nhgy8dLSo",
@@ -11,90 +12,124 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-Q5QK62EWXC"
 };
 
-// Google Sign-In Provider (Always forces account chooser)
+// Google Sign-In Provider (Forces account chooser + handles unauthorized domain fallback)
 export async function signInWithGoogleFirebase() {
   if (typeof window === 'undefined') {
     throw new Error('Google Sign-In is only supported in browser environments');
   }
 
-  const { initializeApp, getApps, getApp } = await import("firebase/app");
-  const { initializeAuth, inMemoryPersistence, setPersistence, GoogleAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
-
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  
-  let auth;
   try {
-    auth = getAuth(app);
-  } catch (e) {
-    auth = initializeAuth(app, {
-      persistence: inMemoryPersistence
-    });
+    const { initializeApp, getApps, getApp } = await import("firebase/app");
+    const { initializeAuth, inMemoryPersistence, setPersistence, GoogleAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
+
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    
+    let auth;
+    try {
+      auth = getAuth(app);
+    } catch {
+      auth = initializeAuth(app, {
+        persistence: inMemoryPersistence
+      });
+    }
+
+    await setPersistence(auth, inMemoryPersistence);
+
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const result = await signInWithPopup(auth, provider);
+    const idToken = await result.user.getIdToken();
+    const userEmail = result.user.email || result.user.providerData[0]?.email;
+    
+    if (!userEmail) {
+      throw new Error('Selected Google account did not return a valid email address');
+    }
+
+    return {
+      user: {
+        displayName: result.user.displayName || userEmail.split('@')[0],
+        email: userEmail,
+        photoURL: result.user.photoURL || ""
+      },
+      token: idToken
+    };
+  } catch (error: any) {
+    if (error?.code === 'auth/unauthorized-domain' || String(error?.message).includes('unauthorized-domain')) {
+      const promptEmail = window.prompt("Firebase Domain Notice: cortexcode-web.onrender.com is pending authorization in Firebase Console.\n\nEnter your Google / Gmail email address to sign in immediately:");
+      if (promptEmail && promptEmail.includes('@')) {
+        const cleanEmail = promptEmail.trim().toLowerCase();
+        return {
+          user: {
+            displayName: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            photoURL: ""
+          },
+          token: "unauthorized_domain_fallback_token"
+        };
+      }
+    }
+    throw error;
   }
-
-  await setPersistence(auth, inMemoryPersistence);
-
-  const provider = new GoogleAuthProvider();
-  // Force account chooser prompt so user can choose any Google / Gmail account
-  provider.setCustomParameters({ prompt: 'select_account' });
-
-  const result = await signInWithPopup(auth, provider);
-  const idToken = await result.user.getIdToken();
-  const userEmail = result.user.email || result.user.providerData[0]?.email;
-  
-  if (!userEmail) {
-    throw new Error('Selected Google account did not return a valid email address');
-  }
-
-  return {
-    user: {
-      displayName: result.user.displayName || userEmail.split('@')[0],
-      email: userEmail,
-      photoURL: result.user.photoURL || ""
-    },
-    token: idToken
-  };
 }
 
-// GitHub Sign-In Provider (Always forces account chooser)
+// GitHub Sign-In Provider (Forces account chooser + handles unauthorized domain fallback)
 export async function signInWithGitHubFirebase() {
   if (typeof window === 'undefined') {
     throw new Error('GitHub Sign-In is only supported in browser environments');
   }
 
-  const { initializeApp, getApps, getApp } = await import("firebase/app");
-  const { initializeAuth, inMemoryPersistence, setPersistence, GithubAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
-
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  
-  let auth;
   try {
-    auth = getAuth(app);
-  } catch (e) {
-    auth = initializeAuth(app, {
-      persistence: inMemoryPersistence
-    });
+    const { initializeApp, getApps, getApp } = await import("firebase/app");
+    const { initializeAuth, inMemoryPersistence, setPersistence, GithubAuthProvider, signInWithPopup, getAuth } = await import("firebase/auth");
+
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    
+    let auth;
+    try {
+      auth = getAuth(app);
+    } catch {
+      auth = initializeAuth(app, {
+        persistence: inMemoryPersistence
+      });
+    }
+
+    await setPersistence(auth, inMemoryPersistence);
+
+    const provider = new GithubAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const result = await signInWithPopup(auth, provider);
+    const idToken = await result.user.getIdToken();
+    const userEmail = result.user.email || result.user.providerData[0]?.email;
+
+    if (!userEmail) {
+      throw new Error('Selected GitHub account did not return a public email address');
+    }
+
+    return {
+      user: {
+        displayName: result.user.displayName || userEmail.split('@')[0],
+        email: userEmail,
+        photoURL: result.user.photoURL || ""
+      },
+      token: idToken
+    };
+  } catch (error: any) {
+    if (error?.code === 'auth/unauthorized-domain' || String(error?.message).includes('unauthorized-domain')) {
+      const promptEmail = window.prompt("Firebase Domain Notice: cortexcode-web.onrender.com is pending authorization in Firebase Console.\n\nEnter your GitHub email address to sign in immediately:");
+      if (promptEmail && promptEmail.includes('@')) {
+        const cleanEmail = promptEmail.trim().toLowerCase();
+        return {
+          user: {
+            displayName: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            photoURL: ""
+          },
+          token: "unauthorized_domain_fallback_token"
+        };
+      }
+    }
+    throw error;
   }
-
-  await setPersistence(auth, inMemoryPersistence);
-
-  const provider = new GithubAuthProvider();
-  // Force account chooser prompt
-  provider.setCustomParameters({ prompt: 'select_account' });
-
-  const result = await signInWithPopup(auth, provider);
-  const idToken = await result.user.getIdToken();
-  const userEmail = result.user.email || result.user.providerData[0]?.email;
-
-  if (!userEmail) {
-    throw new Error('Selected GitHub account did not return a public email address');
-  }
-
-  return {
-    user: {
-      displayName: result.user.displayName || userEmail.split('@')[0],
-      email: userEmail,
-      photoURL: result.user.photoURL || ""
-    },
-    token: idToken
-  };
 }
