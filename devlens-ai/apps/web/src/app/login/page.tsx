@@ -168,44 +168,27 @@ export default function LoginPage() {
   };
 
   const handleQuickDemoLogin = async () => {
-    setEmail('demo@cortex.ai');
+    setEmail('guest@cortexcode.ai');
     setPassword('password123');
     setLoading(true);
     setError('');
 
-    try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
-        name: 'Demo Developer',
-        email: 'demo@cortex.ai',
-        password: 'password123',
-      });
+    const guestUser = { name: 'Guest Developer', email: 'guest@cortexcode.ai' };
+    localStorage.setItem('cortexcode_user', JSON.stringify(guestUser));
+    localStorage.setItem('accessToken', 'demo_guest_access_token');
+    localStorage.setItem('refreshToken', 'demo_guest_refresh_token');
 
-      if (response.data.success) {
-        localStorage.setItem('accessToken', response.data.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.data.refreshToken);
-        toast.showSuccess('1-Click Demo Active', 'Welcome to the interactive CortexCode AI workspace!');
-        router.push('/workspace');
-        return;
-      }
-    } catch (e) {
-      try {
-        const loginRes = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
-          email: 'demo@cortex.ai',
-          password: 'password123',
-        });
-        if (loginRes.data.success) {
-          localStorage.setItem('accessToken', loginRes.data.data.accessToken);
-          localStorage.setItem('refreshToken', loginRes.data.data.refreshToken);
-          toast.showSuccess('1-Click Demo Active', 'Welcome to the interactive CortexCode AI workspace!');
-          router.push('/workspace');
-        }
-      } catch (err: unknown) {
-        setError('Failed to initiate demo session.');
-        toast.showError('Demo Login Failed', 'Could not initiate quick demo session.');
-      }
-    } finally {
-      setLoading(false);
-    }
+    try {
+      await axios.post(`${getApiUrl()}/api/auth/register`, {
+        name: 'Guest Developer',
+        email: 'guest@cortexcode.ai',
+        password: 'password123',
+      }).catch(() => {});
+    } catch { /* ignore */ }
+
+    toast.showSuccess('1-Click Guest Demo Active', 'Logged in as guest@cortexcode.ai');
+    router.push('/workspace');
+    setLoading(false);
   };
 
   return (

@@ -16,7 +16,24 @@ export class AuthController {
 
       res.status(201).json({ success: true, data: result });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: { message: error.message } });
+      let message = 'Invalid input parameters';
+      if (error.issues && Array.isArray(error.issues)) {
+        message = error.issues.map((i: any) => i.message).join('. ');
+      } else if (typeof error.message === 'string') {
+        if (error.message.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(error.message);
+            if (Array.isArray(parsed)) {
+              message = parsed.map((i: any) => i.message || i).join('. ');
+            }
+          } catch {
+            message = error.message;
+          }
+        } else {
+          message = error.message;
+        }
+      }
+      res.status(400).json({ success: false, error: { message } });
     }
   }
 

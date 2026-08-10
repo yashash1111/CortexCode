@@ -60,15 +60,23 @@ export default function RegisterPage() {
           msg = errData.message;
         } else if (Array.isArray(errData.issues)) {
           msg = errData.issues.map((i: any) => i.message).join('. ');
-        } else if (typeof errData === 'object') {
-          msg = Object.values(errData).filter(v => typeof v === 'string').join('. ') || 'Invalid registration details';
         }
       } else if (err.message) {
         msg = err.message;
       }
       
-      // Clean string formatting so no raw JSON object is shown to user
-      msg = String(msg).replace(/^\{|\}$|^\[|\]$/g, '').trim();
+      if (typeof msg === 'string' && (msg.startsWith('[') || msg.startsWith('{'))) {
+        try {
+          const parsed = JSON.parse(msg);
+          if (Array.isArray(parsed)) {
+            msg = parsed.map((i: any) => i.message || i).join('. ');
+          } else if (parsed.message) {
+            msg = parsed.message;
+          }
+        } catch { /* ignore */ }
+      }
+
+      msg = String(msg).replace(/^\[|\]$|^\{|\}$/g, '').trim();
       setError(msg);
       toast.showError('Registration Notice', msg);
     } finally {
