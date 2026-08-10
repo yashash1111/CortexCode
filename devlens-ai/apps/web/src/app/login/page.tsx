@@ -22,7 +22,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const { login } = useAuth();
+  const { login, setUserProfile } = useAuth();
 
   const redirectTarget = searchParams.get('redirect') || '/workspace';
 
