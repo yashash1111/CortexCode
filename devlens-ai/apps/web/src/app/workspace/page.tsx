@@ -14,12 +14,13 @@ import Composer from '@/components/chat/Composer';
 import ModeSelector, { ChatMode } from '@/components/chat/ModeSelector';
 import DragDropOverlay from '@/components/chat/DragDropOverlay';
 import BackgroundVideo from '@/components/BackgroundVideo';
-import { useToast } from '@/providers/ToastProvider';
-import type { AttachedFile } from '@/components/chat/types';
+import { useAuth } from '@/providers/AuthProvider';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
-export default function WorkspacePage() {
+function WorkspaceContent() {
   const router = useRouter();
   const toast = useToast();
+  const { user, logout } = useAuth();
 
   // Sidebar & Responsive State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -804,5 +805,13 @@ export default function WorkspacePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function WorkspacePage() {
+  return (
+    <ProtectedRoute>
+      <WorkspaceContent />
+    </ProtectedRoute>
   );
 }

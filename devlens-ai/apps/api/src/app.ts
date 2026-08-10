@@ -1,12 +1,34 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 const app: Application = express();
 
-// Middleware
+// Security Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cookieParser() as any);
+
+// Dynamic CORS configuration allowing credential cookies
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'https://cortexcode-web.onrender.com',
+  'http://localhost:3000'
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow incoming web traffic gracefully
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 app.use(express.json());
 
 import authRoutes from './routes/auth.routes';
@@ -28,7 +50,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/workspaces', workspaceRoutes);
-app.use('/api/demo', demoRoutes); // Public demo endpoint — no auth required
+app.use('/api/demo', demoRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({

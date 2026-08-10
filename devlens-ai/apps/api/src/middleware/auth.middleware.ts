@@ -4,25 +4,37 @@ import { verifyAccessToken, JwtPayload } from '../utils/jwt';
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload;
+      user?: JwtPayload & { email?: string; name?: string };
     }
   }
 }
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
+  // Extract token from HttpOnly cookie or Authorization Bearer header
+  let token: string | undefined = req.cookies?.accessToken;
 
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ success: false, error: { message: 'Unauthorized' } });
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      error: { message: 'Authentication required. Please log in.' }
+    });
+  }
 
   try {
     const payload = verifyAccessToken(token);
     req.user = payload;
     next();
   } catch (error) {
-    return res.status(401).json({ success: false, error: { message: 'Invalid or expired token' } });
+    return res.status(401).json({
+      success: false,
+      error: { message: 'Session expired or invalid. Please log in again.' }
+    });
   }
 };

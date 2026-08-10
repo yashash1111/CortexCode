@@ -9,16 +9,22 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
-import { useEffect } from 'react';
+import { useAuth } from '@/providers/AuthProvider';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
+  const { login } = useAuth();
+
+  const redirectTarget = searchParams.get('redirect') || '/workspace';
 
   useEffect(() => {
     try {
@@ -39,27 +45,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${getApiUrl()}/api/auth/login`, {
-        email,
-        password,
-      });
-
-      if (response.data.success) {
-        localStorage.setItem('accessToken', response.data.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.data.refreshToken);
-        
-        const userData = response.data.data.user || { name: email.split('@')[0], email };
-        localStorage.setItem('cortexcode_user', JSON.stringify(userData));
-
-        toast.showSuccess('Signed In Successfully!', 'Launching your AI developer workspace...');
-        router.push('/workspace');
-      }
+      await login(email, password);
+      toast.showSuccess('Signed In Successfully!', 'Launching your AI developer workspace...');
+      router.push(redirectTarget);
     } catch (err: any) {
-      let msg = 'Login failed. Please check your email and password.';
+      let msg = 'Invalid email or password.';
       if (err.response?.data?.error) {
         const errData = err.response.data.error;
         if (typeof errData === 'string') msg = errData;
         else if (typeof errData.message === 'string') msg = errData.message;
+      } else if (err.message) {
+        msg = err.message;
       }
       msg = String(msg).replace(/^\{|\}$|^\[|\]$/g, '').trim();
       setError(msg);
@@ -344,5 +340,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white text-xs">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import QueryProvider from "../providers/QueryProvider";
 import { ToastProvider } from "../providers/ToastProvider";
+import { AuthProvider } from "../providers/AuthProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ export default function RootLayout({
       <body className="antialiased bg-zinc-950 text-zinc-50 font-sans">
         <QueryProvider>
           <ToastProvider>
-            {children}
+            <AuthProvider>
+              {children}
+            </AuthProvider>
           </ToastProvider>
         </QueryProvider>
       </body>

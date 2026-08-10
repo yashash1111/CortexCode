@@ -10,16 +10,20 @@ import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/fireba
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
 
+import { useAuth } from '@/providers/AuthProvider';
+
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'fullstack' | 'security' | 'ai'>('fullstack');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const toast = useToast();
+  const { register } = useAuth();
 
   const getPasswordStrength = () => {
     if (!password) return { score: 0, label: 'Empty', color: 'bg-zinc-700', text: 'text-zinc-500' };
@@ -33,23 +37,27 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await axios.post(`${getApiUrl()}/api/auth/register`, {
-        name,
-        email,
-        password,
-      });
+      await register(name, email, password);
 
-      if (response.data?.success) {
-        // Save user info & prefill credentials for login page
-        localStorage.setItem('cortexcode_user', JSON.stringify({ name, email }));
-        sessionStorage.setItem('registered_credentials', JSON.stringify({ email, password }));
-        
-        toast.showSuccess('Account Created Successfully!', 'Redirecting to login to sign in...');
-        router.push('/login');
-      }
+      // Save prefilled credentials for smooth login redirect
+      sessionStorage.setItem('registered_credentials', JSON.stringify({ email, password }));
+      
+      toast.showSuccess('Account Created Successfully!', 'Redirecting to sign in...');
+      router.push('/login');
     } catch (err: any) {
       let msg = 'Registration failed. Please try again.';
       if (err.response?.data?.error) {

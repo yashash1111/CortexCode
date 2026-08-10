@@ -1,49 +1,52 @@
 import prisma from '../config/prisma';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
 
-// In-memory store fallback when PostgreSQL database is not running
+// In-memory fallback user registry for development when database is offline
 const inMemoryUsers = new Map<string, any>();
 
 export class AuthService {
-  // In-memory registry for password reset tokens: Maps Token -> Email
   public static resetTokens = new Map<string, string>();
 
-  static async register(data: any) {
+  static async register(data: { name: string; email: string; password: string }) {
+    const normalizedEmail = data.email.trim().toLowerCase();
+
+    // Check if account already exists
+    let existingUser: any = null;
+    try {
+      existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    } catch {
+      existingUser = inMemoryUsers.get(normalizedEmail);
+    }
+
+    if (existingUser) {
+      throw new Error('An account with this email address already exists.');
+    }
+
+    const hashedPassword = await hashPassword(data.password);
     let user: any = null;
 
     try {
-      const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
-      if (existingUser) throw new Error('Email already in use');
-
-      const hashedPassword = await hashPassword(data.password);
       user = await prisma.user.create({
         data: {
-          name: data.name,
-          email: data.email,
+          name: data.name.trim(),
+          email: normalizedEmail,
           passwordHash: hashedPassword
         }
       });
-    } catch (dbError: any) {
-      if (dbError.message === 'Email already in use') throw dbError;
-
-      // Fallback to in-memory user store if DB connection is unavailable
-      if (inMemoryUsers.has(data.email)) {
-        throw new Error('Email already in use');
-      }
-
-      const hashedPassword = await hashPassword(data.password);
-      const userId = 'user-' + Date.now();
+    } catch (dbError) {
+      // Fallback to memory store if DB is unavailable
+      const userId = 'usr_' + Date.now();
       user = {
         id: userId,
-        name: data.name,
-        email: data.email,
+        name: data.name.trim(),
+        email: normalizedEmail,
         passwordHash: hashedPassword,
         createdAt: new Date(),
         updatedAt: new Date()
       };
       inMemoryUsers.set(userId, user);
-      inMemoryUsers.set(data.email, user);
+      inMemoryUsers.set(normalizedEmail, user);
     }
 
     const accessToken = generateAccessToken(user.id);
@@ -59,31 +62,35 @@ export class AuthService {
           expiresAt
         }
       });
-    } catch (e) {
-      // Ignore DB refresh token save error when DB is unavailable
-    }
+    } catch { /* ignore db offline */ }
 
-    const { passwordHash, ...userWithoutPassword } = user;
-    return { user: userWithoutPassword, accessToken, refreshToken };
+    const { passwordHash, ...safeUser } = user;
+    return { user: safeUser, accessToken, refreshToken };
   }
 
-  static async login(data: any) {
+  static async login(data: { email: string; password: string }) {
+    const normalizedEmail = data.email.trim().toLowerCase();
     let user: any = null;
 
     try {
-      user = await prisma.user.findUnique({ where: { email: data.email } });
-    } catch (dbError) {
-      user = inMemoryUsers.get(data.email);
+      user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    } catch {
+      user = inMemoryUsers.get(normalizedEmail);
     }
 
     if (!user) {
-      user = inMemoryUsers.get(data.email);
+      user = inMemoryUsers.get(normalizedEmail);
     }
 
-    if (!user || !user.passwordHash) throw new Error('Invalid credentials');
+    // Generic error to prevent user enumeration
+    if (!user || !user.passwordHash) {
+      throw new Error('Invalid email or password.');
+    }
 
-    const isValid = await verifyPassword(data.password, user.passwordHash);
-    if (!isValid) throw new Error('Invalid credentials');
+    const isValidPassword = await verifyPassword(data.password, user.passwordHash);
+    if (!isValidPassword) {
+      throw new Error('Invalid email or password.');
+    }
 
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
@@ -98,38 +105,59 @@ export class AuthService {
           expiresAt
         }
       });
-    } catch (e) {
-      // Ignore DB refresh token save error when DB is unavailable
-    }
+    } catch { /* ignore db offline */ }
 
-    const { passwordHash, ...userWithoutPassword } = user;
-    return { user: userWithoutPassword, accessToken, refreshToken };
+    const { passwordHash, ...safeUser } = user;
+    return { user: safeUser, accessToken, refreshToken };
   }
 
-  static async updatePasswordByEmail(email: string, passwordHash: string) {
-    // 1. Update in-memory fallback store
-    const inMemoryUser = inMemoryUsers.get(email);
-    if (inMemoryUser) {
-      inMemoryUser.passwordHash = passwordHash;
-      inMemoryUsers.set(email, inMemoryUser);
-      if (inMemoryUser.id) {
-        inMemoryUsers.set(inMemoryUser.id, inMemoryUser);
-      }
+  static async getUserById(id: string) {
+    let user: any = null;
+    try {
+      user = await prisma.user.findUnique({ where: { id } });
+    } catch {
+      user = inMemoryUsers.get(id);
     }
 
-    // 2. Update PostgreSQL database
+    if (!user) {
+      user = inMemoryUsers.get(id);
+    }
+
+    if (!user) return null;
+
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
+  }
+
+  static async refreshSession(token: string) {
+    try {
+      const payload = verifyRefreshToken(token);
+      const user = await this.getUserById(payload.userId);
+      if (!user) throw new Error('User not found');
+
+      const newAccessToken = generateAccessToken(user.id);
+      const newRefreshToken = generateRefreshToken(user.id);
+
+      return { user, accessToken: newAccessToken, refreshToken: newRefreshToken };
+    } catch {
+      throw new Error('Invalid or expired refresh token.');
+    }
+  }
+
+  static async updatePasswordByEmail(email: string, hashedPassword: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const inMemoryUser = inMemoryUsers.get(normalizedEmail);
+    if (inMemoryUser) {
+      inMemoryUser.passwordHash = hashedPassword;
+      inMemoryUsers.set(normalizedEmail, inMemoryUser);
+      if (inMemoryUser.id) inMemoryUsers.set(inMemoryUser.id, inMemoryUser);
+    }
+
     try {
       await prisma.user.update({
-        where: { email },
-        data: { passwordHash }
+        where: { email: normalizedEmail },
+        data: { passwordHash: hashedPassword }
       });
-    } catch (e) {
-      // Fallback prints if DB is closed / unavailable during development
-      console.log(`[AuthService] Password hash updated for ${email} in memory fallback.`);
-    }
-  }
-
-  static async refresh(refreshToken: string) {
-    return { message: 'Tokens refreshed' };
+    } catch { /* ignore */ }
   }
 }
