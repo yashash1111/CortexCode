@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
+    "axios": "^1.6.7",
     "bcrypt": "^6.0.0",
     "bullmq": "^6.0.9",
     "cors": "^2.8.5",
