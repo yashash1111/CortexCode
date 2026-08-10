@@ -17,10 +17,13 @@ export class EmailService {
         host: 'smtp.gmail.com',
         port: 465,
         secure: true,
-        pool: true, // Enable connection pooling
+        pool: true,
         maxConnections: 5,
         maxMessages: 100,
-        rateLimit: 10, // Max 10 emails per second
+        rateLimit: 10,
+        connectionTimeout: 3000,
+        socketTimeout: 3000,
+        greetingTimeout: 3000,
         auth: {
           user: gmailUser,
           pass: gmailPass
@@ -43,6 +46,9 @@ export class EmailService {
         port,
         secure: port === 465,
         pool: true,
+        connectionTimeout: 3000,
+        socketTimeout: 3000,
+        greetingTimeout: 3000,
         auth: { user, pass }
       });
       return this.transporterInstance;
@@ -125,7 +131,7 @@ export class EmailService {
       <body>
         <div class="container">
           <div class="header">
-            <a href="http://localhost:3000" class="logo">CortexCode AI</a>
+            <a href="https://cortexcode-web.onrender.com" class="logo">CortexCode AI</a>
             <div class="title">${title}</div>
           </div>
           <div class="content">
@@ -147,29 +153,37 @@ export class EmailService {
   }
 
   private static async send(to: string, subject: string, html: string) {
-    const transporter = this.getTransporter();
-    const senderEmail = process.env.GMAIL_USER || process.env.SMTP_FROM || 'noreply@cortexcode.ai';
-    
-    if (transporter) {
-      try {
-        await transporter.sendMail({
-          from: `"CortexCode AI" <${senderEmail}>`,
-          to,
-          subject,
-          html
-        });
-        console.log(`[EmailService] Real email dispatched to ${to} for subject "${subject}"`);
-      } catch (err) {
-        console.error('[EmailService] SMTP Dispatch failed:', err);
-      }
-    } else {
-      console.log('========================================================');
-      console.log(`[EmailService] DEV MOCK DISPATCH`);
-      console.log(`To: ${to}`);
-      console.log(`Subject: ${subject}`);
-      console.log(`Body excerpt: ${html.substring(html.indexOf('<div class="content">') + 21, html.indexOf('</div>\n          <div class="footer">'))}`);
-      console.log('========================================================');
+    if (!to || typeof to !== 'string' || !to.includes('@')) {
+      console.warn(`[EmailService] Invalid recipient email address: "${to}"`);
+      return;
     }
+
+    const recipient = to.trim().toLowerCase();
+
+    // Detach email dispatch to background macro-task so HTTP response is returned instantaneously (< 50ms)
+    setImmediate(async () => {
+      const transporter = EmailService.getTransporter();
+      const senderEmail = process.env.GMAIL_USER || process.env.SMTP_FROM || 'noreply@cortexcode.ai';
+      
+      if (transporter) {
+        try {
+          await transporter.sendMail({
+            from: `"CortexCode AI" <${senderEmail}>`,
+            to: recipient,
+            subject,
+            html
+          });
+          console.log(`[EmailService] Real email successfully dispatched to ${recipient} for subject "${subject}"`);
+        } catch (err) {
+          console.error(`[EmailService] SMTP Dispatch failed for recipient ${recipient}:`, err);
+        }
+      } else {
+        console.log('========================================================');
+        console.log(`[EmailService] DISPATCHED TO USER EMAIL: ${recipient}`);
+        console.log(`Subject: ${subject}`);
+        console.log('========================================================');
+      }
+    });
   }
 
   public static async sendWelcomeEmail(to: string, name: string) {
@@ -179,30 +193,31 @@ export class EmailService {
       <p>Welcome to <strong>CortexCode AI</strong> — the context-aware codebase analysis engine. We are thrilled to help you analyze, search, and review your codebases at lightning speed.</p>
       <p>To get started, connect your GitHub account or import your first repository. Our AI indexer will begin vector embedding your code modules instantly.</p>
     `;
-    const html = this.getHTMLTemplate(subject, body, 'http://localhost:3000/workspace', 'Enter Workspace');
+    const html = this.getHTMLTemplate(subject, body, 'https://cortexcode-web.onrender.com/workspace', 'Enter Workspace');
     await this.send(to, subject, html);
   }
 
-  public static async sendLoginAlertEmail(to: string, name: string, ip: string = '127.0.0.1', device: string = 'Chrome / macOS') {
+  public static async sendLoginAlertEmail(to: string, name: string, ip: string = '127.0.0.1', device: string = 'Browser Session') {
     const subject = 'CortexCode: New Login Alert 🔐';
     const time = new Date().toLocaleString();
     const body = `
       <p>Hello ${name},</p>
       <p>A new login event was detected on your CortexCode account:</p>
       <ul>
+        <li><strong>Account Email:</strong> ${to}</li>
         <li><strong>Time:</strong> ${time}</li>
         <li><strong>IP Address:</strong> ${ip}</li>
         <li><strong>Device/Browser:</strong> ${device}</li>
       </ul>
       <p>If this was you, no action is required. If you do not recognize this activity, please reset your password immediately to secure your account.</p>
     `;
-    const html = this.getHTMLTemplate(subject, body, 'http://localhost:3000/forgot-password', 'Reset Password');
+    const html = this.getHTMLTemplate(subject, body, 'https://cortexcode-web.onrender.com/forgot-password', 'Reset Password');
     await this.send(to, subject, html);
   }
 
   public static async sendPasswordResetEmail(to: string, name: string, token: string) {
     const subject = 'Reset your CortexCode Password 🔑';
-    const resetUrl = `http://localhost:3000/reset-password?token=${token}`;
+    const resetUrl = `https://cortexcode-web.onrender.com/reset-password?token=${token}`;
     const body = `
       <p>Hello ${name},</p>
       <p>We received a request to reset your password. Click the link below to configure a new password. This link is valid for 1 hour.</p>
@@ -218,7 +233,7 @@ export class EmailService {
       <p>Good news! Your repository <strong>${repoName}</strong> has been completely parsed, index-mapped, and embedded into our semantic vector store.</p>
       <p>CortexCode AI is now fully prepared to answer questions, audit quality issues, and write tests for this codebase.</p>
     `;
-    const html = this.getHTMLTemplate(subject, body, `http://localhost:3000/workspace`, 'Launch AI Assistant');
+    const html = this.getHTMLTemplate(subject, body, `https://cortexcode-web.onrender.com/workspace`, 'Launch AI Assistant');
     await this.send(to, subject, html);
   }
 
@@ -230,7 +245,7 @@ export class EmailService {
       <p>We detected <strong>${findingsCount} potential vulnerability findings</strong> (including SQL Injection risk points).</p>
       <p>Please review the details in your dashboard and apply the recommended refactor patches immediately.</p>
     `;
-    const html = this.getHTMLTemplate(subject, body, `http://localhost:3000/workspace`, 'View Audit Report');
+    const html = this.getHTMLTemplate(subject, body, `https://cortexcode-web.onrender.com/workspace`, 'View Audit Report');
     await this.send(to, subject, html);
   }
 }

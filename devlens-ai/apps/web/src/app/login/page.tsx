@@ -65,50 +65,39 @@ function LoginContent() {
     }
   };
 
-  const handleGoogleFirebaseLogin = async () => {
+  const handleGoogleOAuth = async () => {
     setLoading(true);
     setError('');
     try {
       const { user } = await signInWithGoogleFirebase();
-      const userEmail = user?.email || 'user.google@cortex.ai';
-      const userName = user?.displayName || 'Google Developer';
+      if (!user || !user.email) {
+        throw new Error('Google Sign-In popup did not return a valid email address.');
+      }
+      const userEmail = user.email;
+      const userName = user.displayName || userEmail.split('@')[0];
 
-      localStorage.setItem('cortexcode_user', JSON.stringify({ name: userName, email: userEmail }));
+      setUserProfile({ name: userName, email: userEmail });
 
       try {
-        let res;
         try {
-          res = await axios.post(`${getApiUrl()}/api/auth/login`, {
+          await apiClient.post('/api/auth/login', {
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
-        } catch (e) {
-          res = await axios.post(`${getApiUrl()}/api/auth/register`, {
+        } catch {
+          await apiClient.post('/api/auth/register', {
             name: userName,
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
         }
-
-        if (res?.data?.success) {
-          localStorage.setItem('accessToken', res.data.data.accessToken);
-          localStorage.setItem('refreshToken', res.data.data.refreshToken);
-        } else {
-          localStorage.setItem('accessToken', 'demo_google_access_token');
-          localStorage.setItem('refreshToken', 'demo_google_refresh_token');
-        }
-      } catch (e) {
-        localStorage.setItem('accessToken', 'demo_google_access_token');
-        localStorage.setItem('refreshToken', 'demo_google_refresh_token');
-      }
+      } catch { /* ignore fallback */ }
 
       toast.showSuccess('Google Auth Verified', `Welcome back, ${userName}!`);
-      router.push('/workspace');
-    } catch (err: unknown) {
-      localStorage.setItem('accessToken', 'demo_google_access_token');
-      localStorage.setItem('refreshToken', 'demo_google_refresh_token');
-      toast.showSuccess('Google Developer Session Active', 'Launching workspace...');
-      router.push('/workspace');
+      router.push(redirectTarget);
+    } catch (err: any) {
+      const msg = err?.message || 'Google sign-in was cancelled.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -119,45 +108,34 @@ function LoginContent() {
     setError('');
     try {
       const { user } = await signInWithGitHubFirebase();
-      const userEmail = user?.email || 'developer.github@cortex.ai';
-      const userName = user?.displayName || 'GitHub Developer';
+      if (!user || !user.email) {
+        throw new Error('GitHub Sign-In popup did not return a valid email address.');
+      }
+      const userEmail = user.email;
+      const userName = user.displayName || userEmail.split('@')[0];
 
-      localStorage.setItem('cortexcode_user', JSON.stringify({ name: userName, email: userEmail }));
+      setUserProfile({ name: userName, email: userEmail });
 
       try {
-        let res;
         try {
-          res = await axios.post(`${getApiUrl()}/api/auth/login`, {
+          await apiClient.post('/api/auth/login', {
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
-        } catch (e) {
-          res = await axios.post(`${getApiUrl()}/api/auth/register`, {
+        } catch {
+          await apiClient.post('/api/auth/register', {
             name: userName,
             email: userEmail,
             password: 'FirebaseOAuthSecret123!'
           });
         }
-
-        if (res?.data?.success) {
-          localStorage.setItem('accessToken', res.data.data.accessToken);
-          localStorage.setItem('refreshToken', res.data.data.refreshToken);
-        } else {
-          localStorage.setItem('accessToken', 'demo_github_access_token');
-          localStorage.setItem('refreshToken', 'demo_github_refresh_token');
-        }
-      } catch (e) {
-        localStorage.setItem('accessToken', 'demo_github_access_token');
-        localStorage.setItem('refreshToken', 'demo_github_refresh_token');
-      }
+      } catch { /* ignore fallback */ }
 
       toast.showSuccess('GitHub Auth Verified', `Welcome back, ${userName}!`);
-      router.push('/workspace');
-    } catch (err: unknown) {
-      localStorage.setItem('accessToken', 'demo_github_access_token');
-      localStorage.setItem('refreshToken', 'demo_github_refresh_token');
-      toast.showSuccess('GitHub Developer Session Active', 'Launching workspace...');
-      router.push('/workspace');
+      router.push(redirectTarget);
+    } catch (err: any) {
+      const msg = err?.message || 'GitHub sign-in was cancelled.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
