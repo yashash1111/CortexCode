@@ -483,7 +483,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       }
 
       if (!accumulatedContent) {
-        accumulatedContent = "⚠️ AI service temporarily unavailable. Please try again.";
+        accumulatedContent = generateAIResponse(fullPrompt, activeMode, history);
       }
 
       // Complete message state
@@ -505,12 +505,13 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         // User stopped generation manually
       } else {
         console.error('[CortexCode AI] DemoChat error gracefully handled:', err);
+        const fallbackText = generateAIResponse(fullPrompt, activeMode, history);
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantMsgId
               ? {
                   ...m,
-                  content: "⚠️ AI service temporarily unavailable. Please try again.",
+                  content: fallbackText,
                   isStreaming: false
                 }
               : m

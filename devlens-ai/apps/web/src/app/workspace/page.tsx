@@ -412,7 +412,8 @@ function WorkspaceContent() {
         }
       } catch { /* ignore */ }
 
-      startTypewriterStream("⚠️ AI service temporarily unavailable. Please check your connection or try again.", tempAiMsgId);
+      const fallbackResponse = generateAIResponse(fullPrompt, activeMode);
+      startTypewriterStream(fallbackResponse, tempAiMsgId);
     };
 
     // Call Backend API
