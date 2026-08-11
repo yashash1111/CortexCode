@@ -11,7 +11,7 @@ export class GeminiProvider {
     overrideApiKey?: string
   ): Promise<string> {
     const defaultKey = () => {
-      try { return Buffer.from('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWSk9kS3VFVUQtdUNTT3VxY0dVTFE=', 'base64').toString('utf-8'); } catch { return ''; }
+      try { return Buffer.from('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=', 'base64').toString('utf-8'); } catch { return ''; }
     };
     const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || defaultKey();
     if (!apiKey || apiKey === 'dummy') {

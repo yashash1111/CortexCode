@@ -252,7 +252,7 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     try {
       return typeof window !== 'undefined' && typeof atob === 'function'
-        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWSk9kS3VFVUQtdUNTT3VxY0dVTFE=')
+        ? atob('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=')
         : '';
     } catch { return ''; }
   };
