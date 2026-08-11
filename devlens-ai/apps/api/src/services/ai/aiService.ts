@@ -81,10 +81,8 @@ export class AIService {
     const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
     const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
 
-    // Dev-mode request logging (no secrets logged)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[AIService] REQUEST | mode=${mode} | historyLen=${windowedHistory.length} | promptLen=${prompt.length}`);
-    }
+    // Phase 13: Safe Server-Side Request Logging
+    console.log(`[AI REQUEST] mode=${mode} | model=${modelName} | conversationLength=${windowedHistory.length} | userMessageLength=${prompt.length}`);
 
     // 1. Attempt Gemini Provider (preferred for free demo)
     if (
@@ -94,9 +92,7 @@ export class AIService {
     ) {
       try {
         const result = await GeminiProvider.generateResponse(prompt, windowedHistory, systemPrompt, geminiKey);
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[AIService] RESPONSE (Gemini) | len=${result.length}`);
-        }
+        console.log(`[AI RESPONSE] model=${modelName} | success=true | responseLength=${result.length}`);
         return result;
       } catch (err: any) {
         console.warn(`[AIService] Gemini Provider failed: ${err.message}. Trying next provider...`);

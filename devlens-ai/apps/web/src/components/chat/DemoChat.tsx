@@ -428,7 +428,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       // If direct Gemini request was omitted or failed, call backend stream endpoint
       if (!geminiResponse || !geminiResponse.ok) {
         try {
-          geminiResponse = await fetch(`${getApiUrl()}/api/demo/stream`, {
+          geminiResponse = await fetch(`${getApiUrl()}/api/demo/chat/stream`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -483,7 +483,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       }
 
       if (!accumulatedContent) {
-        accumulatedContent = generateAIResponse(fullPrompt, activeMode, history);
+        accumulatedContent = "⚠️ AI service temporarily unavailable. Please try again.";
       }
 
       // Complete message state
@@ -505,14 +505,12 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         // User stopped generation manually
       } else {
         console.error('[CortexCode AI] DemoChat error gracefully handled:', err);
-        const fallbackText = generateAIResponse(fullPrompt, activeMode, history);
-
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantMsgId
               ? {
                   ...m,
-                  content: fallbackText,
+                  content: "⚠️ AI service temporarily unavailable. Please try again.",
                   isStreaming: false
                 }
               : m

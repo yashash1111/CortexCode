@@ -412,9 +412,7 @@ function WorkspaceContent() {
         }
       } catch { /* ignore */ }
 
-      // Comprehensive ChatGPT / Gemini Response Engine
-      const fallbackResponse = generateAIResponse(fullPrompt, activeMode);
-      startTypewriterStream(fallbackResponse, tempAiMsgId);
+      startTypewriterStream("⚠️ AI service temporarily unavailable. Please check your connection or try again.", tempAiMsgId);
     };
 
     // Call Backend API

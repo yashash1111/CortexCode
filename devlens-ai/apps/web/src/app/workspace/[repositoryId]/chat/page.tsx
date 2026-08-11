@@ -306,14 +306,7 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
       const reply = await callGeminiDirect(text, messages, apiKey);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
-      const lower = text.toLowerCase().trim();
-      let reply = "Here is the implementation for your request:\n\n1. Ensure clean structure and proper error handling.\n2. Execute with sample parameters to verify correctness.";
-      if (lower === 'hi' || lower === 'hello' || lower === 'hey') {
-        reply = "Hello! 👋 Welcome to your Repository AI Workspace. How can I assist you with your codebase today?";
-      } else if (lower.includes('reverse') && lower.includes('string') && lower.includes('java')) {
-        reply = `Here is how to reverse a String in Java:\n\n\`\`\`java\npublic class ReverseString {\n    public static void main(String[] args) {\n        String original = "CortexCode";\n        String reversed = new StringBuilder(original).reverse().toString();\n        System.out.println("Reversed: " + reversed);\n    }\n}\n\`\`\``;
-      }
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ AI service temporarily unavailable. Please try again.' }]);
     } finally {
       setIsLoading(false);
     }
