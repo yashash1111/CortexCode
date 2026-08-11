@@ -385,9 +385,19 @@ function WorkspaceContent() {
       try {
         const key = effectiveKeys.gemini;
         if (!key) throw new Error('No Gemini key');
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+        const isOAuth = key.startsWith('AQ.') || key.startsWith('ya29.') || key.startsWith('1//');
+        const fetchUrl = isOAuth
+          ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
+          : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+
+        const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (isOAuth) {
+          requestHeaders['Authorization'] = `Bearer ${key}`;
+        }
+
+        const res = await fetch(fetchUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: requestHeaders,
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
             generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }

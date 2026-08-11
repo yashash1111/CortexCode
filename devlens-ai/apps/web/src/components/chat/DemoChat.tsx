@@ -395,12 +395,22 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
       // Only attempt direct Gemini API fetch if valid API key is present
       if (geminiKey && geminiKey.trim() !== '' && geminiKey !== 'demo_token' && geminiKey.length > 10) {
+        const isOAuth = geminiKey.startsWith('AQ.') || geminiKey.startsWith('ya29.') || geminiKey.startsWith('1//');
+        const fetchUrl = isOAuth
+          ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`
+          : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`;
+
+        const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (isOAuth) {
+          requestHeaders['Authorization'] = `Bearer ${geminiKey}`;
+        }
+
         try {
           geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`,
+            fetchUrl,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: requestHeaders,
               body: JSON.stringify({
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 contents: geminiContents,

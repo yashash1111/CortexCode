@@ -30,8 +30,17 @@ export class GeminiProvider {
       formattedHistory.push({ role: 'user', parts: [{ text: prompt }] });
     }
 
-    // Try standard query parameter API key first, then fallback to Bearer header
-    const attempts = [
+    const isOAuth = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.') || apiKey.startsWith('1//');
+    const attempts = isOAuth ? [
+      {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }
+      },
+      {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    ] : [
       {
         url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
         headers: { 'Content-Type': 'application/json' }
