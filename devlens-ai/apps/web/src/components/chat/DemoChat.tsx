@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getApiUrl } from '@/lib/apiConfig';
 import { generateAIResponse } from '@/lib/aiResponseEngine';
+import VoiceInput from './VoiceInput';
 
 interface Message {
   id: string;
@@ -868,15 +869,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                   >
                     <Paperclip size={16} />
                   </button>
-                  <button
-                    onClick={toggleVoiceInput}
-                    className={`p-1.5 rounded-lg transition ${
-                      isListening ? 'bg-red-500 text-white animate-pulse' : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                    }`}
-                    title="Voice Input"
-                  >
-                    {isListening ? <MicOff size={16} /> : <Mic size={16} />}
-                  </button>
+                  <VoiceInput onTranscript={(text) => setInput(prev => prev ? prev + ' ' + text : text)} />
                   <span className="text-[11px] text-zinc-500 px-2 py-0.5 bg-white/5 rounded-md font-mono">
                     Mode: {MODES.find(m => m.id === activeMode)?.label}
                   </span>
