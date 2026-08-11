@@ -7,38 +7,30 @@ import { getModeSystemInstructions } from './modePrompts';
 export const CORTEXCODE_SYSTEM_PROMPT = `You are CortexCode AI — a senior AI coding-platform architect, software engineer, LLM integration engineer, compiler-aware developer, debugger, code reviewer, and technical educator.
 
 ===============================================================
-ADVANCED CODING ENGINE STANDARDS
+ADVANCED CODING ENGINE STANDARDS & LANGUAGE PRIORITY
 ===============================================================
 
-1. CODING REQUEST DETECTION:
-   - Identify when user asks coding/technical questions (e.g. "write Java code for binary search", "fix this React code", "why am I getting NullPointerException?", "convert Python to Java", "optimize this solution", "what is recursion?").
-   - DO NOT treat casual conversation ("hi", "how are you?", "good", "tell me a joke") as coding requests.
+1. STRICT LANGUAGE PRIORITY RULE:
+   - EXPLICIT USER LANGUAGE > ATTACHED CODE > PROJECT CONTEXT > DEFAULT
+   - If user specifies "Java" -> generate JAVA code inside \`\`\`java blocks ONLY.
+   - If user specifies "Python" -> generate PYTHON code inside \`\`\`python blocks ONLY.
+   - If user specifies "C++" -> generate C++ code inside \`\`\`cpp blocks ONLY.
+   - If user specifies "JavaScript" -> generate JAVASCRIPT code inside \`\`\`javascript blocks ONLY.
+   - If user specifies "TypeScript" -> generate TYPESCRIPT code inside \`\`\`typescript blocks ONLY.
+   - If user specifies "Dart" / "Flutter" -> generate DART code inside \`\`\`dart blocks ONLY.
+   - JAVA AND JAVASCRIPT ARE DIFFERENT LANGUAGES. NEVER default Java requests to JavaScript.
 
 2. CODE GENERATION STANDARD:
    - All code must be syntactically valid, logically correct, and complete enough to run.
-   - Respect the requested language (Java -> Java, Python -> Python, JS -> JS, TS -> TS, C++ -> C++, React -> React, Flutter -> Dart/Flutter).
-   - NEVER use placeholder comments like "// add your code here" or "// implement this yourself" when a complete implementation is requested.
+   - NEVER use placeholder comments like "// add your code here" or "// implement this yourself".
    - Do NOT invent non-existent APIs, functions, or libraries.
 
-3. EXISTING CODE & DEBUGGING ENGINE:
-   - Read and inspect existing code first. Modify only the necessary parts instead of rewriting entire projects unnecessarily.
-   - For errors, provide structured diagnosis:
-     ### Problem: What is wrong
-     ### Why it happens: Root cause
-     ### Fix: Complete corrected runnable code
-     ### Why the fix works: Brief explanation
+3. DEBUGGING & DSA ENGINES:
+   - Analyze actual error stack traces provided by the user.
+   - DSA problems: Approach -> Algorithm -> Code -> Time O(...) and Space O(...) Complexity.
 
-4. DSA / ALGORITHMIC SOLVER:
-   - When solving LeetCode/DSA problems, use the optimal approach:
-     ### Approach: Core intuition
-     ### Algorithm: Step-by-step logic
-     ### Code: Complete runnable implementation
-     ### Complexity: Time O(...) and Space O(...)
-   - Handle edge cases (empty inputs, nulls, single elements, boundary values).
-
-5. GENERAL CHAT FLEXIBILITY:
-   - General Chat handles any topic (programming, science, mathematics, career, general knowledge, casual chat).
-   - Match response length and formatting dynamically to the user request.`;
+4. GENERAL CHAT FLEXIBILITY:
+   - Casual conversation ("hi", "how r u", "good", "tell me a joke") must remain natural.`;
 
 export interface UserApiKeys {
   gemini?: string;
@@ -47,9 +39,22 @@ export interface UserApiKeys {
 }
 
 export class AIService {
-  static buildSystemInstructions(mode: string = 'chat'): string {
+  static buildSystemInstructions(mode: string = 'chat', prompt: string = ''): string {
     const modePrompt = getModeSystemInstructions(mode);
-    return `${CORTEXCODE_SYSTEM_PROMPT}\n\n${modePrompt}`;
+    const detectedLang = FallbackProvider.extractLanguage(prompt);
+
+    let languageLock = '';
+    if (detectedLang) {
+      languageLock = `\n\n===============================================================
+EXPLICIT LANGUAGE LOCK: ${detectedLang.toUpperCase()}
+===============================================================
+The user explicitly requested ${detectedLang} code.
+STRICT RULE: You MUST generate ${detectedLang} code inside \`\`\`${detectedLang.toLowerCase()} code blocks.
+JavaScript, Python, C++, TypeScript, and other languages are STRICTLY FORBIDDEN unless requested.
+Do NOT default to JavaScript under any circumstances.`;
+    }
+
+    return `${CORTEXCODE_SYSTEM_PROMPT}\n\n${modePrompt}${languageLock}`;
   }
 
   static async generateResponse(
@@ -60,7 +65,7 @@ export class AIService {
     userKeys?: UserApiKeys
   ): Promise<string> {
     const providerEnv = (process.env.AI_PROVIDER || 'auto').toLowerCase();
-    const systemPrompt = AIService.buildSystemInstructions(mode);
+    const systemPrompt = AIService.buildSystemInstructions(mode, prompt);
 
     // Limit history window to last 12 messages
     const windowedHistory = Array.isArray(history) ? history.slice(-12) : [];
@@ -73,7 +78,8 @@ export class AIService {
     const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
 
     // Safe Server-Side Request Logging
-    console.log(`[AI REQUEST] mode=${mode} | model=${modelName} | conversationLength=${windowedHistory.length} | userMessageLength=${prompt.length}`);
+    const detectedLang = FallbackProvider.extractLanguage(prompt);
+    console.log(`[AI REQUEST] mode=${mode} | model=${modelName} | detectedLanguage=${detectedLang || 'none'} | userMessageLength=${prompt.length}`);
 
     // 1. Attempt Gemini Provider
     if (
@@ -120,7 +126,7 @@ export class AIService {
       }
     }
 
-    // 4. Fallback Neural Engine
+    // 4. Fallback Language-Locked Neural Engine
     console.log(`[AIService] Utilizing FallbackProvider for prompt: "${prompt.slice(0, 30)}..."`);
     return FallbackProvider.generateResponse(prompt, windowedHistory, mode);
   }

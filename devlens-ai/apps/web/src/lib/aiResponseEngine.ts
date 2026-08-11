@@ -1,8 +1,25 @@
-// Intelligent Neural Response Engine for Frontend Fallback
+// Intelligent Language-Locked Response Engine for Frontend Fallback
+
+export function extractLanguage(prompt: string): string | null {
+  const p = prompt.toLowerCase();
+  if (/\b(java|spring boot)\b/i.test(p) && !/\b(javascript|js)\b/i.test(p)) return 'Java';
+  if (/\b(python|py|django|flask)\b/i.test(p)) return 'Python';
+  if (/\b(c\+\+|cpp)\b/i.test(p)) return 'C++';
+  if (/\b(c#|csharp|\.net)\b/i.test(p)) return 'C#';
+  if (/\b(dart|flutter)\b/i.test(p)) return 'Dart';
+  if (/\b(typescript|ts)\b/i.test(p)) return 'TypeScript';
+  if (/\b(javascript|js|node|express|react)\b/i.test(p)) return 'JavaScript';
+  if (/\b(go|golang)\b/i.test(p)) return 'Go';
+  if (/\b(rust)\b/i.test(p)) return 'Rust';
+  if (/\b(kotlin)\b/i.test(p)) return 'Kotlin';
+  if (/\b(sql|postgres|mysql)\b/i.test(p)) return 'SQL';
+  return null;
+}
 
 export function generateAIResponse(prompt: string, mode: string = 'chat', history: any[] = []): string {
   const p = prompt.trim();
   const lower = p.toLowerCase();
+  const detectedLang = extractLanguage(prompt);
 
   // 1. CASUAL CONVERSATION & GREETINGS
   if (/^(hi|hello|hey|greetings|hola|sup|good (morning|afternoon|evening))\b/i.test(lower)) {
@@ -22,20 +39,11 @@ export function generateAIResponse(prompt: string, mode: string = 'chat', histor
   }
 
   if (lower.includes('do you know all coding questions') || lower.includes('know all coding')) {
-    return `I know a wide range of coding concepts, data structures, algorithms, system design patterns, and programming languages! What specific problem or project are you working on?`;
-  }
-
-  if (lower.includes('bored') || lower.includes('i am bored') || lower.includes('im bored')) {
-    return `I hear you! Being bored is a great opportunity to try something fun. Here are a few ideas:\n\n1. 🧠 **Coding Challenge:** Want a 5-minute puzzle to solve?\n2. 💡 **App Brainstorming:** Name two random topics and we'll design a mini project idea!\n3. 🎮 **Tech Trivia:** Quiz yourself on JavaScript, Python, Java, or System Design.\n4. ☕ **Take a Break:** Grab some water, stretch, or step outside for a bit.\n\nWhich one sounds good to you?`;
+    return `I know a wide range of coding concepts, algorithms, system design patterns, and programming languages! What specific question or project can I help you with?`;
   }
 
   if (lower.includes('joke') || lower.includes('tell me a joke')) {
-    const jokes = [
-      `Why do programmers prefer dark mode?\n\nBecause light attracts bugs! 🐛`,
-      `There are 10 types of people in the world:\n\nThose who understand binary, and those who don't. 😄`,
-      `A SQL query walks into a bar, walks up to two tables and asks...\n\n*"Can I join you?"* 🍻`
-    ];
-    return jokes[Math.floor(Math.random() * jokes.length)];
+    return `Why do programmers prefer dark mode?\n\nBecause light attracts bugs! 🐛`;
   }
 
   if (lower.includes('thank') || lower.includes('thanks')) {
@@ -44,92 +52,221 @@ export function generateAIResponse(prompt: string, mode: string = 'chat', histor
 
   // 2. GENERAL QUESTIONS & LIFE ADVICE
   if (lower.includes('improve') && lower.includes('life')) {
-    return `Here are 5 practical steps to improve your life, along with explanations for each:
+    return `Here are 5 practical steps to improve your life:
 
-1. **Optimize Your Sleep & Circadian Rhythm**
-   Getting 7–8 hours of quality sleep improves cognitive function, emotional resilience, and daily energy. Set a consistent bedtime and limit screen time 1 hour before sleep.
-
-2. **Move Every Day (Exercise)**
-   Physical activity releases endorphins, reduces stress, and increases focus. Even a 20-minute daily walk makes a significant long-term impact on physical and mental health.
-
-3. **Learn a High-Value Skill Daily**
-   Dedicate 30–60 minutes every day to mastering a specific skill (like programming, system design, or writing). Consistency compounds over time into expertise.
-
-4. **Practice Intentional Focus (Minimize Distractions)**
-   Deep work leads to high output. Block out 90-minute distraction-free sessions for your most important goals rather than multitasking.
-
-5. **Build Strong Relationships & Set Weekly Goals**
-   Invest time in supportive connections and review your personal progress every Sunday to adjust your direction.`;
+1. **Optimize Your Sleep & Circadian Rhythm:** Get 7–8 hours of quality sleep daily.
+2. **Move Every Day (Exercise):** Engage in 20–30 minutes of daily physical activity.
+3. **Learn a High-Value Skill Daily:** Dedicate 45 minutes to continuous learning.
+4. **Practice Deep Work:** Work in 90-minute distraction-free focus sessions.
+5. **Set Weekly Goals & Reflect:** Review progress every Sunday to stay aligned.`;
   }
 
-  // 3. DEFINITIONS & MATHEMATICS
   if (lower === '2 + 2' || lower === '2+2' || lower === '2 + 2 = ?') {
     return `4`;
   }
 
   if (lower === 'what is ram?' || lower === 'what is ram' || lower === 'explain ram') {
-    return `RAM (Random Access Memory) is a computer's short-term working memory. It temporarily stores data and active programs that the CPU needs immediately, allowing applications to load and run quickly. When you turn off your computer, RAM is cleared.`;
+    return `RAM (Random Access Memory) is a computer's short-term working memory. It temporarily stores data and active programs that the CPU needs immediately. When you turn off your computer, RAM is cleared.`;
   }
 
-  if (lower.includes('recursion')) {
-    return `Recursion is a programming technique where a function calls itself to break down a problem into smaller sub-problems until reaching a base case.
+  // 3. STRICT LANGUAGE-SPECIFIC CODE GENERATION
+  if (detectedLang === 'Java' || (lower.includes('java') && !lower.includes('javascript'))) {
+    if (lower.includes('reverse') && lower.includes('string')) {
+      return `Here is a complete Java program to reverse a String:
 
 \`\`\`java
-public class RecursionExample {
-    public static int factorial(int n) {
-        if (n <= 1) return 1; // Base Case
-        return n * factorial(n - 1); // Recursive Call
-    }
+import java.util.Scanner;
 
+public class Main {
     public static void main(String[] args) {
-        System.out.println(factorial(5)); // Outputs 120
-    }
-}
-\`\`\`
-
-**Key Rule:** Every recursive function must have a base case to prevent a \`StackOverflowError\`.`;
-  }
-
-  // 4. COMPARISONS
-  if (lower.includes('mongodb') && lower.includes('postgresql')) {
-    return `### MongoDB vs PostgreSQL Comparison
-
-| Feature | MongoDB | PostgreSQL |
-| :--- | :--- | :--- |
-| **Data Model** | JSON Documents (NoSQL) | Relational Tables (SQL) |
-| **Schema** | Flexible / Dynamic | Strict Schema Enforcement |
-| **ACID Compliance** | Document-Level | Full Multi-Table ACID |
-| **Best For** | Dynamic JSON data, rapid prototyping | Relational data, financial transactions, complex joins |
-
-**Recommendation:** Use **PostgreSQL** for apps needing strict relational structures or financial accuracy. Use **MongoDB** for unstructured data or rapidly evolving document schemas.`;
-  }
-
-  // 5. CODE REQUESTS & DEBUGGING
-  if (lower.includes('reverse') && lower.includes('string') && lower.includes('java')) {
-    return `Here is a complete Java program to reverse a String:
-
-\`\`\`java
-public class ReverseString {
-    public static void main(String[] args) {
-        String original = "CortexCode";
-        String reversed = new StringBuilder(original).reverse().toString();
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter a string: ");
+        String input = scanner.nextLine();
         
-        System.out.println("Original: " + original);
-        System.out.println("Reversed: " + reversed);
+        String reversed = new StringBuilder(input).reverse().toString();
+        System.out.println("Reversed String: " + reversed);
+        
+        scanner.close();
     }
 }
 \`\`\`
 
 ### Complexity
 - **Time Complexity:** $O(n)$ where $n$ is string length.
-- **Space Complexity:** $O(n)$ space for character buffer.`;
+- **Space Complexity:** $O(n)$ for character buffer.`;
+    }
+
+    if (lower.includes('binary search')) {
+      return `Here is a complete Java implementation of Binary Search:
+
+\`\`\`java
+public class BinarySearch {
+    public static int binarySearch(int[] arr, int target) {
+        int left = 0;
+        int right = arr.length - 1;
+
+        while (left <= right) {
+            int mid = left + (right - left) / 2;
+
+            if (arr[mid] == target) {
+                return mid;
+            }
+            if (arr[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        return -1; // Target not found
+    }
+
+    public static void main(String[] args) {
+        int[] numbers = {2, 5, 8, 12, 16, 23, 38, 56, 72, 91};
+        int target = 23;
+        int result = binarySearch(numbers, target);
+
+        if (result != -1) {
+            System.out.println("Element found at index: " + result);
+        } else {
+            System.out.println("Element not found.");
+        }
+    }
+}
+\`\`\`
+
+### Complexity
+- **Time Complexity:** $O(\log n)$
+- **Space Complexity:** $O(1)$ iterative`;
+    }
+
+    if (lower.includes('two sum')) {
+      return `Here is the optimal $O(n)$ Two Sum solution in Java:
+
+\`\`\`java
+import java.util.HashMap;
+import java.util.Map;
+
+public class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        Map<Integer, Integer> map = new HashMap<>();
+        
+        for (int i = 0; i < nums.length; i++) {
+            int complement = target - nums[i];
+            if (map.containsKey(complement)) {
+                return new int[] { map.get(complement), i };
+            }
+            map.put(nums[i], i);
+        }
+        return new int[]{};
+    }
+}
+\`\`\`
+
+### Complexity
+- **Time Complexity:** $O(n)$
+- **Space Complexity:** $O(n)$ for HashMap`;
+    }
+
+    return `Here is the requested Java solution:
+
+\`\`\`java
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("CortexCode Java Solution");
+        // Implementation for: ${p}
+    }
+}
+\`\`\``;
   }
 
-  // 6. ADAPTIVE GENERAL INTENT RESOLVER
+  if (detectedLang === 'Python') {
+    if (lower.includes('reverse') && lower.includes('string')) {
+      return `Here is the Python solution to reverse a string:
+
+\`\`\`python
+def reverse_string(s: str) -> str:
+    return s[::-1]
+
+# Example usage
+input_str = "CortexCode"
+print(f"Original: {input_str}")
+print(f"Reversed: {reverse_string(input_str)}")
+\`\`\`
+
+### Complexity
+- **Time Complexity:** $O(n)$
+- **Space Complexity:** $O(n)$`;
+    }
+
+    if (lower.includes('two sum')) {
+      return `Here is the optimal $O(n)$ Two Sum solution in Python:
+
+\`\`\`python
+def two_sum(nums: list[int], target: int) -> list[int]:
+    seen = {}
+    for i, num in enumerate(nums):
+        complement = target - num
+        if complement in seen:
+            return [seen[complement], i]
+        seen[num] = i
+    return []
+
+# Example usage
+print(two_sum([2, 7, 11, 15], 9))  # Output: [0, 1]
+\`\`\`
+
+### Complexity
+- **Time Complexity:** $O(n)$
+- **Space Complexity:** $O(n)$`;
+    }
+
+    return `Here is the requested Python solution:
+
+\`\`\`python
+def solution():
+    print("CortexCode Python Solution")
+    # Implementation for: ${p}
+
+if __name__ == "__main__":
+    solution()
+\`\`\``;
+  }
+
+  if (detectedLang === 'C++') {
+    return `Here is the requested C++ solution:
+
+\`\`\`cpp
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    cout << "CortexCode C++ Solution" << endl;
+    return 0;
+}
+\`\`\``;
+  }
+
+  if (detectedLang === 'Dart') {
+    return `Here is the requested Dart/Flutter solution:
+
+\`\`\`dart
+void main() {
+  print('CortexCode Dart Solution');
+}
+\`\`\``;
+  }
+
+  // 4. GENERAL CODE RESOLVER
   const isCode = lower.includes('code') || lower.includes('function') || lower.includes('script') || lower.includes('build') || lower.includes('create') || lower.includes('implement');
 
   if (isCode) {
-    return `Here is a clean implementation for **"${p}"**:
+    return `Here is a clean JavaScript/TypeScript implementation:
 
 \`\`\`typescript
 export function solution(params: Record<string, any>) {
@@ -139,12 +276,10 @@ export function solution(params: Record<string, any>) {
   console.log("Processing payload:", params);
   return { success: true, timestamp: new Date().toISOString() };
 }
-\`\`\`
-
-Feel free to specify target language (Java, Python, JS/TS, C++) or framework details!`;
+\`\`\``;
   }
 
   return `Here is the response regarding **"${p}"**:
 
-Feel free to share any specific details or questions you'd like to dive into!`;
+Feel free to specify your target programming language (Java, Python, C++, TypeScript, Go, Dart) for exact code generation!`;
 }
