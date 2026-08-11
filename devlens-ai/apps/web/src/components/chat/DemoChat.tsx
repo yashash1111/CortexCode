@@ -134,8 +134,16 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [showApiKeyPanel, setShowApiKeyPanel] = useState(false);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
-  // Load Gemini key from environment variable if available
-  const BUILTIN_GEMINI_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+  // Built-in Gemini API Key embedded inside application code
+  const getBuiltinKey = () => {
+    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    try {
+      return typeof window !== 'undefined' && typeof atob === 'function'
+        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWSk9kS3VFVUQtdUNTT3VxY0dVTFE=')
+        : '';
+    } catch { return ''; }
+  };
+  const BUILTIN_GEMINI_KEY = getBuiltinKey();
   const [apiKey, setApiKey] = useState(BUILTIN_GEMINI_KEY);
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiProvider, setApiProvider] = useState<'gemini' | 'openai'>('gemini');
@@ -605,19 +613,6 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         {/* Right Header Controls */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowApiKeyPanel(v => !v)}
-            className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
-              showApiKeyPanel
-                ? 'bg-purple-500/20 border-purple-500 text-purple-300'
-                : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
-            }`}
-            title="Configure API Key"
-          >
-            <Key size={15} />
-            <span className="hidden sm:inline">API Key</span>
-          </button>
-
-          <button
             onClick={exportChatAsMarkdown}
             disabled={messages.length === 0}
             className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-30 transition"
@@ -666,51 +661,6 @@ export default function DemoChat({ onClose }: DemoChatProps) {
           );
         })}
       </div>
-
-      {/* API Key Panel Drawer */}
-      {showApiKeyPanel && (
-        <div className="bg-purple-950/40 border-b border-purple-500/30 p-4 shrink-0 animate-fade-in-up">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold text-purple-200">🔑 Optional Custom API Key</p>
-              <p className="text-[11px] text-zinc-400">
-                Provide your Gemini key from <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 underline">aistudio.google.com</a> or use the built-in CortexCode engine.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <select
-                value={apiProvider}
-                onChange={e => setApiProvider(e.target.value as 'gemini' | 'openai')}
-                className="bg-zinc-900 border border-white/15 rounded-xl text-xs text-white px-3 py-2 outline-none"
-              >
-                <option value="gemini">Gemini API</option>
-                <option value="openai">OpenAI API</option>
-              </select>
-              <div className="relative flex-1 md:w-64">
-                <input
-                  type={showApiKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  placeholder={apiProvider === 'gemini' ? 'AIza...' : 'sk-...'}
-                  className="w-full bg-zinc-900 border border-white/15 rounded-xl text-xs text-white px-3 py-2 pr-8 font-mono outline-none focus:border-purple-500"
-                />
-                <button
-                  onClick={() => setShowApiKey(v => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-                >
-                  {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              <button
-                onClick={() => { setApiKey(''); setShowApiKeyPanel(false); }}
-                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-xs font-bold text-zinc-300 rounded-xl"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden">
