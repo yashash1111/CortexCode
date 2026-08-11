@@ -18,16 +18,29 @@ export class GeminiProvider {
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
-    const formattedHistory = history
-      .filter(m => m.role === 'user' || m.role === 'assistant')
+    const rawHistory = history
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim() !== '')
       .map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
       }));
 
-    const lastMsg = formattedHistory[formattedHistory.length - 1];
-    if (!lastMsg || lastMsg.parts[0]?.text !== prompt || lastMsg.role !== 'user') {
-      formattedHistory.push({ role: 'user', parts: [{ text: prompt }] });
+    // Ensure strict role alternation (no consecutive user or model items)
+    const formattedHistory: { role: string; parts: { text: string }[] }[] = [];
+    for (const item of rawHistory) {
+      if (formattedHistory.length === 0 || formattedHistory[formattedHistory.length - 1].role !== item.role) {
+        formattedHistory.push(item);
+      }
+    }
+
+    // Ensure prompt is present as the final user message
+    const last = formattedHistory[formattedHistory.length - 1];
+    if (!last || last.role !== 'user' || last.parts[0]?.text !== prompt) {
+      if (last && last.role === 'user') {
+        last.parts = [{ text: prompt }];
+      } else {
+        formattedHistory.push({ role: 'user', parts: [{ text: prompt }] });
+      }
     }
 
     const isOAuth = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.') || apiKey.startsWith('1//');

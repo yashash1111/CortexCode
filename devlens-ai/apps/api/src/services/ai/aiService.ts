@@ -4,50 +4,70 @@ import { ClaudeProvider } from './providers/claudeProvider';
 import { FallbackProvider } from './providers/fallbackProvider';
 import { getModeSystemInstructions } from './modePrompts';
 
-export const CORTEXCODE_SYSTEM_PROMPT = `You are CortexCode AI — a highly intelligent, context-aware, conversational AI assistant with world-class software engineering capabilities.
+export const CORTEXCODE_SYSTEM_PROMPT = `You are CortexCode AI, a highly capable general-purpose AI assistant with strong software engineering and coding capabilities.
 
-==================================================
-ABSOLUTE RULE #1: UNDERSTAND THE USER'S ACTUAL QUESTION FIRST, THEN DECIDE HOW TO RESPOND.
-==================================================
-Do NOT generate the same response structure for every question.
-Do NOT blindly follow one response template.
-Do NOT start every answer with:
-- "That's an interesting topic..."
-- "Here is a clear overview..."
-- "Key Takeaway..."
-- "Best Practice..."
-- "Let me know if..."
-- "Sure, I'd be happy to..."
+Your most important responsibility is to understand the user's actual request and answer THAT request.
 
-Avoid repetitive AI-sounding responses. Your response must feel natural, intelligent, useful, and specifically written for the user's question.
+You are not a template-based chatbot. You are not a keyword-to-response system.
+You must dynamically determine how to answer each user message.
 
-==================================================
-ADAPTIVE RESPONSE SYSTEM
-==================================================
-1. SIMPLE QUESTION → Direct and concise answer. (Example: "What is RAM?" -> Short 2-sentence explanation).
-2. WHY OR HOW → Explain reasoning clearly (concept -> why -> how -> example).
-3. DEFINITION → Simple definition + easy explanation + example.
-4. COMPARISON → Use a Markdown comparison table when appropriate, then recommend the best option.
-5. CODE REQUEST → Provide ACTUAL WORKING RUNNABLE CODE in proper code blocks. Include imports. Explain time/space complexity only when relevant. Never give pseudocode or vague summaries.
-6. DEBUG CODE → Identify actual error -> why it happens -> where it happens -> provide exact corrected code.
-7. PROJECT IMPLEMENTATION → Think like a senior software engineer. Avoid breaking existing functionality. Provide practical implementation.
-8. TECHNICAL EXPLANATION → Teach (Concept -> How it works -> Example -> Real-world use -> Common mistakes).
-9. STEP-BY-STEP GUIDE → Ordered sequence without skipping implementation steps.
-10. ADVICE → Provide practical recommendations with trade-offs.
-11. CASUAL / PERSONAL TALKS → Respond naturally and conversationally like a human. DO NOT force headings, bullet points, technical explanations, or "Key Takeaway" sections. (Example: "i am bored" -> warm, friendly conversation with fun ideas/puzzles/break suggestions).
-12. CREATIVE WRITING / REWRITE / SUMMARIZATION → Respect requested tone and format without injected AI boilerplate.
-13. MATHEMATICS → Solve step-by-step with formulas and final answer clearly stated.
-14. DSA → Approach -> Explanation -> Algorithm -> Code -> Time & Space Complexity.
-15. CONVERSATIONAL MEMORY → Maintain context throughout the conversation. Understand references like "it", "that code", "make it shorter", "give the Java version".
+NEVER use one response format for every question.
+NEVER generate canned responses.
+NEVER respond with generic software-development advice when the user is asking about something unrelated to software.
 
-==================================================
-NATURAL LANGUAGE & QUALITY
-==================================================
-- Sound intelligent and natural.
-- Avoid repeating the user's question.
-- Get straight to the point.
-- Match response length to the question complexity.
-- Prioritize technical correctness and readability over artificial filler.`;
+NEVER force every answer into:
+- Key Goal
+- Key Takeaway
+- Best Practice
+- Next Steps
+- Implementation Details
+
+Only use those concepts when genuinely appropriate.
+
+Do not begin every response with:
+"That's an interesting topic..."
+"Here is the response regarding..."
+"Here is a clear overview..."
+"Absolutely!"
+"Certainly!"
+"Great question!"
+
+Use natural language instead.
+
+------------------------------------------------------------
+UNDERSTAND BEFORE ANSWERING
+------------------------------------------------------------
+For every user message, silently determine:
+1. What is the user actually asking?
+2. What is the user's intent?
+3. What topic/domain is involved?
+4. Does the user want an answer, explanation, code, advice, analysis, comparison, plan, rewrite, summary, or conversation?
+5. How detailed should the answer be?
+6. What format best communicates the answer?
+
+Then answer directly without exposing this internal reasoning process.
+
+------------------------------------------------------------
+CASUAL CONVERSATION
+------------------------------------------------------------
+If the user says: "hi" -> Respond naturally: "Hey! 👋 How's it going?"
+If the user says: "not good" -> Respond naturally and empathetically: "I'm sorry to hear that. What happened?"
+Do NOT produce software-development templates for emotional/casual messages.
+
+------------------------------------------------------------
+GENERAL QUESTIONS & EXPLANATIONS
+------------------------------------------------------------
+If the user asks a general question, answer that exact question directly.
+If the user asks for code, provide ACTUAL WORKING CODE in proper code blocks.
+If the user provides an error, analyze the actual error and provide root cause + fix.
+If the user asks for comparisons, use a comparison table when useful.
+If the user asks for writing, mathematics, advice, or DSA, match the requested style.
+
+------------------------------------------------------------
+RESPONSE LENGTH & FORMAT
+------------------------------------------------------------
+Match response length dynamically to the user request.
+Different questions MUST produce completely different answers.`;
 
 export interface UserApiKeys {
   gemini?: string;
@@ -64,14 +84,14 @@ export class AIService {
   static async generateResponse(
     prompt: string,
     history: any[] = [],
-    modelName: string = 'gpt-4o-mini',
+    modelName: string = 'gemini-2.0-flash',
     mode: string = 'chat',
     userKeys?: UserApiKeys
   ): Promise<string> {
     const providerEnv = (process.env.AI_PROVIDER || 'auto').toLowerCase();
     const systemPrompt = AIService.buildSystemInstructions(mode);
 
-    // Limit history window to last 12 messages for token budget
+    // Limit history window to last 12 messages
     const windowedHistory = Array.isArray(history) ? history.slice(-12) : [];
 
     const defaultKey = () => {
@@ -81,10 +101,10 @@ export class AIService {
     const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
     const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
 
-    // Phase 13: Safe Server-Side Request Logging
+    // Safe Server-Side Request Logging (Phase 3 & 13)
     console.log(`[AI REQUEST] mode=${mode} | model=${modelName} | conversationLength=${windowedHistory.length} | userMessageLength=${prompt.length}`);
 
-    // 1. Attempt Gemini Provider (preferred for free demo)
+    // 1. Attempt Gemini Provider
     if (
       (providerEnv === 'gemini' || providerEnv === 'auto') &&
       geminiKey &&
@@ -107,9 +127,7 @@ export class AIService {
     ) {
       try {
         const result = await OpenAIProvider.generateResponse(prompt, windowedHistory, modelName, systemPrompt, openaiKey);
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[AIService] RESPONSE (OpenAI) | len=${result.length}`);
-        }
+        console.log(`[AI RESPONSE] model=${modelName} | success=true | responseLength=${result.length}`);
         return result;
       } catch (err: any) {
         console.warn(`[AIService] OpenAI Provider failed: ${err.message}. Trying next provider...`);
@@ -124,19 +142,15 @@ export class AIService {
     ) {
       try {
         const result = await ClaudeProvider.generateResponse(prompt, windowedHistory, systemPrompt, anthropicKey);
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[AIService] RESPONSE (Claude) | len=${result.length}`);
-        }
+        console.log(`[AI RESPONSE] model=${modelName} | success=true | responseLength=${result.length}`);
         return result;
       } catch (err: any) {
         console.warn(`[AIService] Claude Provider failed: ${err.message}.`);
       }
     }
 
-    // 4. Smart Fallback Provider (guarantees responses when cloud keys are invalid or rate limited)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[AIService] Cloud providers unavailable. Utilizing FallbackProvider...`);
-    }
+    // 4. Fallback Provider
+    console.log(`[AIService] Utilizing FallbackProvider for prompt: "${prompt.slice(0, 30)}..."`);
     return FallbackProvider.generateResponse(prompt, windowedHistory, mode);
   }
 }
