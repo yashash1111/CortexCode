@@ -248,7 +248,16 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
   const [keyChecked, setKeyChecked] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check for stored key on mount
+  const getBuiltinKey = () => {
+    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    try {
+      return typeof window !== 'undefined' && typeof atob === 'function'
+        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWSk9kS3VFVUQtdUNTT3VxY0dVTFE=')
+        : '';
+    } catch { return ''; }
+  };
+
+  // Check for stored key on mount, default to built-in key
   useEffect(() => {
     try {
       const raw = localStorage.getItem('cortexcode_user_api_keys');
@@ -256,16 +265,16 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
         const parsed = JSON.parse(raw);
         if (parsed.gemini) {
           setApiKey(parsed.gemini);
-          setShowSetup(false);
         } else {
-          setShowSetup(true);
+          setApiKey(getBuiltinKey());
         }
       } else {
-        setShowSetup(true);
+        setApiKey(getBuiltinKey());
       }
     } catch {
-      setShowSetup(true);
+      setApiKey(getBuiltinKey());
     }
+    setShowSetup(false);
     setKeyChecked(true);
   }, []);
 
