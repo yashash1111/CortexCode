@@ -16,8 +16,8 @@ import DragDropOverlay from '@/components/chat/DragDropOverlay';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getApiUrl } from '@/lib/apiConfig';
+import { generateAIResponse } from '@/lib/aiResponseEngine';
 import type { AttachedFile } from '@/components/chat/types';
 
 function WorkspaceContent() {
@@ -411,60 +411,8 @@ function WorkspaceContent() {
         }
       } catch { /* ignore */ }
 
-      // Smart AI Response Fallback
-      const promptLower = fullPrompt.toLowerCase().trim();
-      let fallbackResponse = "";
-      if (promptLower === 'hi' || promptLower === 'hello' || promptLower === 'hey') {
-        fallbackResponse = "Hello! 👋 Welcome to your CortexCode AI Workspace. What coding task, bug fix, or architecture question would you like to work on today?";
-      } else if (promptLower.includes('reverse') && promptLower.includes('string') && promptLower.includes('java')) {
-        fallbackResponse = `Here is how to reverse a String in Java using multiple clean approaches:
-
-### Approach 1: Using \`StringBuilder.reverse()\` (Recommended)
-
-\`\`\`java
-public class StringReversal {
-    public static void main(String[] args) {
-        String input = "CortexCode AI";
-        String reversed = new StringBuilder(input).reverse().toString();
-        
-        System.out.println("Original: " + input);
-        System.out.println("Reversed: " + reversed);
-    }
-}
-\`\`\`
-
-### Approach 2: Using Two-Pointer Swapping
-
-\`\`\`java
-public class TwoPointerReversal {
-    public static String reverseString(String str) {
-        if (str == null || str.isEmpty()) return str;
-        char[] chars = str.toCharArray();
-        int left = 0, right = chars.length - 1;
-        
-        while (left < right) {
-            char temp = chars[left];
-            chars[left] = chars[right];
-            chars[right] = temp;
-            left++;
-            right--;
-        }
-        return new String(chars);
-    }
-
-    public static void main(String[] args) {
-        System.out.println(reverseString("Intelligent Workspace")); 
-    }
-}
-\`\`\`
-
-### Complexity Analysis
-- **Time Complexity:** $O(n)$ where $n$ is string length.
-- **Space Complexity:** $O(n)$ space for character buffer.`;
-      } else {
-        fallbackResponse = `Here is the response for your request:\n\n1. Ensure clean component structure and proper error handling.\n2. Utilize standard language conventions and best practices for optimal performance.\n\nFeel free to ask follow-up questions or request specific code implementations!`;
-      }
-
+      // Comprehensive ChatGPT / Gemini Response Engine
+      const fallbackResponse = generateAIResponse(fullPrompt, activeMode);
       startTypewriterStream(fallbackResponse, tempAiMsgId);
     };
 

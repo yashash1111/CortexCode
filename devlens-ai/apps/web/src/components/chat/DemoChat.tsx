@@ -8,6 +8,7 @@ import {
   Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash
 } from 'lucide-react';
 import { getApiUrl } from '@/lib/apiConfig';
+import { generateAIResponse } from '@/lib/aiResponseEngine';
 
 interface Message {
   id: string;
@@ -482,57 +483,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       }
 
       if (!accumulatedContent) {
-        const promptLower = fullPrompt.toLowerCase().trim();
-        if (promptLower === 'hi' || promptLower === 'hello' || promptLower === 'hey') {
-          accumulatedContent = "Hello! 👋 I'm your CortexCode AI assistant. How can I help you with your code or software project today?";
-        } else if (promptLower.includes('reverse') && promptLower.includes('string') && promptLower.includes('java')) {
-          accumulatedContent = `Here is how to reverse a String in Java using several standard approaches:
-
-### Approach 1: Using \`StringBuilder.reverse()\` (Recommended)
-
-\`\`\`java
-public class ReverseString {
-    public static void main(String[] args) {
-        String input = "CortexCode";
-        String reversed = new StringBuilder(input).reverse().toString();
-        
-        System.out.println("Original: " + input);
-        System.out.println("Reversed: " + reversed);
-    }
-}
-\`\`\`
-
-### Approach 2: Using a \`for\` Loop (Without Built-in Methods)
-
-\`\`\`java
-public class ReverseLoop {
-    public static String reverse(String str) {
-        if (str == null) return null;
-        char[] chars = str.toCharArray();
-        int left = 0, right = chars.length - 1;
-        
-        while (left < right) {
-            char temp = chars[left];
-            chars[left] = chars[right];
-            chars[right] = temp;
-            left++;
-            right--;
-        }
-        return new String(chars);
-    }
-
-    public static void main(String[] args) {
-        System.out.println(reverse("Hello World")); // Outputs: dlroW olleH
-    }
-}
-\`\`\`
-
-### Complexity Analysis
-- **Time Complexity:** $O(n)$ where $n$ is the length of the string.
-- **Space Complexity:** $O(n)$ to allocate the output string array.`;
-        } else {
-          accumulatedContent = `Here is the response for your request:\n\n1. Ensure clean component structure and error handling.\n2. Utilize proper language conventions for optimal performance.\n\nWhat specific part would you like to refine or test next?`;
-        }
+        accumulatedContent = generateAIResponse(fullPrompt, activeMode, history);
       }
 
       // Complete message state
@@ -554,9 +505,7 @@ public class ReverseLoop {
         // User stopped generation manually
       } else {
         console.error('[CortexCode AI] DemoChat error gracefully handled:', err);
-        const fallbackText = fullPrompt.toLowerCase().trim() === 'hi'
-          ? "Hello! 👋 How can I assist you with your code today?"
-          : `Here is the response for your request:\n\n1. Ensure clean structure and proper error handling.\n2. Test with sample inputs to verify behavior.`;
+        const fallbackText = generateAIResponse(fullPrompt, activeMode, history);
 
         setMessages(prev =>
           prev.map(m =>
