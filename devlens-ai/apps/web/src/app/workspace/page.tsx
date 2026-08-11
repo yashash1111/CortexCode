@@ -16,6 +16,7 @@ import DragDropOverlay from '@/components/chat/DragDropOverlay';
 import BackgroundVideo from '@/components/BackgroundVideo';
 import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getApiUrl } from '@/lib/apiConfig';
 import { generateAIResponse } from '@/lib/aiResponseEngine';
 import type { AttachedFile } from '@/components/chat/types';
