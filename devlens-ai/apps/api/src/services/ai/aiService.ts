@@ -144,8 +144,6 @@ Do NOT default to JavaScript under any circumstances.`;
       }
     }
 
-    // 5. Fallback Language-Locked Neural Engine
-    console.log(`[AIService] Utilizing FallbackProvider for prompt: "${prompt.slice(0, 30)}..."`);
-    return FallbackProvider.generateResponse(prompt, windowedHistory, mode);
+    throw new Error('AI API Error: All configured API providers failed to respond. Please check your API keys.');
   }
 }
