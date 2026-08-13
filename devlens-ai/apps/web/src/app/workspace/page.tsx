@@ -145,10 +145,11 @@ function WorkspaceContent() {
     apiKey: 'ctx_live_98a72b14c0094ef8a1e2',
   });
 
-  const [customApiKeys, setCustomApiKeys] = useState<{ gemini: string; openai: string; anthropic: string }>({
+  const [customApiKeys, setCustomApiKeys] = useState<{ gemini: string; openai: string; anthropic: string; cerebras?: string }>({
     gemini: '',
     openai: '',
-    anthropic: ''
+    anthropic: '',
+    cerebras: ''
   });
 
   useEffect(() => {
@@ -371,7 +372,7 @@ function WorkspaceContent() {
       if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
       try {
         return typeof window !== 'undefined' && typeof atob === 'function'
-          ? atob('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=')
+          ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=')
           : '';
       } catch { return ''; }
     };
@@ -387,29 +388,35 @@ function WorkspaceContent() {
       try {
         const key = effectiveKeys.gemini;
         if (!key) throw new Error('No Gemini key');
-        const isOAuth = key.startsWith('AQ.') || key.startsWith('ya29.') || key.startsWith('1//');
-        const fetchUrl = isOAuth
-          ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
-          : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+        const isOAuth = key.startsWith('ya29.') || key.startsWith('1//');
+        const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
 
-        const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (isOAuth) {
-          requestHeaders['Authorization'] = `Bearer ${key}`;
-        }
+        for (const mName of candidateModels) {
+          const fetchUrl = isOAuth
+            ? `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent`
+            : `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${key}`;
 
-        const res = await fetch(fetchUrl, {
-          method: 'POST',
-          headers: requestHeaders,
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-          })
-        });
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          startTypewriterStream(text, tempAiMsgId);
-          return;
+          const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (isOAuth) {
+            requestHeaders['Authorization'] = `Bearer ${key}`;
+          }
+
+          try {
+            const res = await fetch(fetchUrl, {
+              method: 'POST',
+              headers: requestHeaders,
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+              })
+            });
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              startTypewriterStream(text, tempAiMsgId);
+              return;
+            }
+          } catch { /* try next model */ }
         }
       } catch { /* ignore */ }
 

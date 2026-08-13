@@ -1,18 +1,29 @@
 import axios from 'axios';
 import { CORTEXCODE_SYSTEM_PROMPT } from '../aiService';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_CANDIDATE_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite'
+];
 
 export class GeminiProvider {
   static async generateResponse(
     prompt: string,
     history: any[] = [],
     systemPrompt: string = CORTEXCODE_SYSTEM_PROMPT,
-    overrideApiKey?: string
+    overrideApiKey?: string,
+    preferredModel?: string
   ): Promise<string> {
     const defaultKey = () => {
-      try { return Buffer.from('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=', 'base64').toString('utf-8'); } catch { return ''; }
+      try {
+        return Buffer.from('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=', 'base64').toString('utf-8');
+      } catch {
+        return '';
+      }
     };
+
     const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || defaultKey();
     if (!apiKey || apiKey === 'dummy') {
       throw new Error('GEMINI_API_KEY is not configured');
@@ -43,58 +54,48 @@ export class GeminiProvider {
       }
     }
 
-    const isOAuth = apiKey.startsWith('AQ.') || apiKey.startsWith('ya29.') || apiKey.startsWith('1//');
-    const attempts = isOAuth ? [
-      {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }
-      },
-      {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    ] : [
-      {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-        headers: { 'Content-Type': 'application/json' }
-      },
-      {
-        url: `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }
-      }
-    ];
+    // Build model candidate sequence starting with preferred model if specified
+    const modelsToTry = preferredModel && preferredModel.startsWith('gemini')
+      ? [preferredModel, ...GEMINI_CANDIDATE_MODELS.filter(m => m !== preferredModel)]
+      : GEMINI_CANDIDATE_MODELS;
 
     let lastError: any;
-    for (const config of attempts) {
+
+    for (const model of modelsToTry) {
+      // Build Google Generative Language API endpoint URL
+      const isOAuth = apiKey.startsWith('ya29.') || apiKey.startsWith('1//');
+      const url = isOAuth
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (isOAuth) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       try {
         const response = await axios.post(
-          config.url,
+          url,
           {
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: formattedHistory,
             generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
           },
-          { headers: config.headers }
+          { headers, timeout: 15000 }
         );
 
         const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) {
-          throw new Error('Empty response from Gemini model');
+        if (text && text.trim()) {
+          return text.trim();
         }
-        return text;
       } catch (err: any) {
         lastError = err;
         const status = err?.response?.status;
-        if (status === 401) {
-          // Try next authentication strategy
-          continue;
-        }
-        if (status === 429) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          continue;
-        }
+        const errMsg = err?.response?.data?.error?.message || err.message;
+        console.warn(`[GeminiProvider] Model ${model} failed (status ${status}): ${errMsg}. Trying next model...`);
       }
     }
-    throw lastError;
+
+    throw lastError || new Error('All Gemini models failed to respond.');
   }
 }

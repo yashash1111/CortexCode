@@ -1,13 +1,19 @@
 import axios from 'axios';
 import { CORTEXCODE_SYSTEM_PROMPT } from '../aiService';
 
+const CEREBRAS_CANDIDATE_MODELS = [
+  'gemma-4-31b',
+  'gpt-oss-120b',
+  'zai-glm-4.7'
+];
+
 export class CerebrasProvider {
   static DEFAULT_CEREBRAS_KEY = 'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe';
 
   static async generateResponse(
     prompt: string,
     history: any[] = [],
-    model: string = 'llama-3.3-70b',
+    model: string = 'gemma-4-31b',
     systemPrompt: string = CORTEXCODE_SYSTEM_PROMPT,
     overrideApiKey?: string
   ): Promise<string> {
@@ -36,44 +42,48 @@ export class CerebrasProvider {
       ...formattedHistory
     ];
 
-    // Determine target model on Cerebras API
-    let targetModel = 'llama-3.3-70b';
-    if (model.includes('8b')) {
-      targetModel = 'llama3.1-8b';
+    // Determine target model sequence
+    let targetModel = 'gemma-4-31b';
+    if (model.includes('oss') || model.includes('120b')) {
+      targetModel = 'gpt-oss-120b';
     } else if (model.includes('zai') || model.includes('glm')) {
       targetModel = 'zai-glm-4.7';
-    } else if (model.includes('gemma')) {
-      targetModel = 'gemma-4-31b';
     }
 
-    try {
-      const response = await axios.post(
-        'https://api.cerebras.ai/v1/chat/completions',
-        {
-          model: targetModel,
-          messages,
-          temperature: 0.7,
-          max_tokens: 2048
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
+    const modelsToTry = [targetModel, ...CEREBRAS_CANDIDATE_MODELS.filter(m => m !== targetModel)];
+    let lastError: any;
+
+    for (const m of modelsToTry) {
+      try {
+        const response = await axios.post(
+          'https://api.cerebras.ai/v1/chat/completions',
+          {
+            model: m,
+            messages,
+            temperature: 0.7,
+            max_tokens: 2048
           },
-          timeout: 10000
-        }
-      );
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          }
+        );
 
-      const content = response.data?.choices?.[0]?.message?.content;
-      if (content && content.trim()) {
-        return content.trim();
+        const content = response.data?.choices?.[0]?.message?.content;
+        if (content && content.trim()) {
+          return content.trim();
+        }
+      } catch (error: any) {
+        lastError = error;
+        const status = error.response?.status;
+        const errorMsg = error.response?.data?.message || error.message;
+        console.warn(`[CerebrasProvider] Model ${m} error (status ${status}): ${errorMsg}`);
       }
-      throw new Error('Empty response payload from Cerebras API');
-    } catch (error: any) {
-      const status = error.response?.status;
-      const errorMsg = error.response?.data?.message || error.message;
-      console.warn(`[CerebrasProvider] Error (status ${status}): ${errorMsg}`);
-      throw error;
     }
+
+    throw lastError || new Error('Cerebras API models failed');
   }
 }

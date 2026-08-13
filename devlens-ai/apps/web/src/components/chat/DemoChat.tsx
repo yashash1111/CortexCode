@@ -43,12 +43,11 @@ const MODES: { id: AIMode; label: string; icon: any; desc: string }[] = [
 ];
 
 const MODELS = [
+  { id: 'gemini-3.6-flash', name: '⚡ Gemini 3.6 Flash (Fast & Smart)' },
+  { id: 'gemini-3.5-flash', name: '🚀 Gemini 3.5 Flash' },
+  { id: 'gemini-flash-latest', name: '🔮 Gemini Flash Latest' },
   { id: 'cerebras-llama-3.3-70b', name: '🚀 Cerebras LLaMA 3.3 70B (Ultra-Fast 2000+ tokens/sec)' },
   { id: 'cerebras-llama3.1-8b', name: '⚡ Cerebras LLaMA 3.1 8B (Instant Speed)' },
-  { id: 'gemini-2.0-flash', name: '⚡ Gemini 2.0 Flash (Fast & Smart)' },
-  { id: 'gemini-2.0-flash-lite', name: '🚀 Gemini 2.0 Flash Lite (Lightweight)' },
-  { id: 'gemini-2.5-pro', name: '🧠 Gemini 2.5 Pro (Most Capable)' },
-  { id: 'gemini-3-flash-preview', name: '🔮 Gemini 3 Flash Preview (Latest)' },
 ];
 
 const STARTER_CATEGORIES = [
@@ -145,7 +144,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     try {
       return typeof window !== 'undefined' && typeof atob === 'function'
-        ? atob('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=')
+        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=')
         : '';
     } catch { return ''; }
   };
@@ -424,7 +423,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       // ── 2. Direct Gemini API fallback ──
       if (!aiResponseStream || !aiResponseStream.ok) {
         const geminiKey = userKeys['gemini'] || BUILTIN_GEMINI_KEY;
-        const modelName = selectedModel.startsWith('gpt') ? 'gemini-2.0-flash' : selectedModel.startsWith('cerebras') ? 'gemini-2.0-flash' : selectedModel;
+        const targetModel = selectedModel.startsWith('gemini') ? selectedModel : 'gemini-3.6-flash';
 
         const geminiContents = [
           ...history.map(m => ({
@@ -435,29 +434,37 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         ];
 
         if (geminiKey && geminiKey.trim() !== '' && geminiKey.length > 10) {
-          const isOAuth = geminiKey.startsWith('AQ.') || geminiKey.startsWith('ya29.') || geminiKey.startsWith('1//');
-          const fetchUrl = isOAuth
-            ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`;
+          const isOAuth = geminiKey.startsWith('ya29.') || geminiKey.startsWith('1//');
+          const candidateModels = [targetModel, 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'].filter((v, i, a) => a.indexOf(v) === i);
 
-          const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (isOAuth) {
-            requestHeaders['Authorization'] = `Bearer ${geminiKey}`;
-          }
+          for (const mName of candidateModels) {
+            const fetchUrl = isOAuth
+              ? `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?alt=sse`
+              : `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?key=${geminiKey}&alt=sse`;
 
-          try {
-            aiResponseStream = await fetch(fetchUrl, {
-              method: 'POST',
-              headers: requestHeaders,
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: geminiContents,
-                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-              }),
-              signal: abortControllerRef.current.signal
-            });
-          } catch {
-            aiResponseStream = null;
+            const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (isOAuth) {
+              requestHeaders['Authorization'] = `Bearer ${geminiKey}`;
+            }
+
+            try {
+              const res = await fetch(fetchUrl, {
+                method: 'POST',
+                headers: requestHeaders,
+                body: JSON.stringify({
+                  systemInstruction: { parts: [{ text: systemPrompt }] },
+                  contents: geminiContents,
+                  generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+                }),
+                signal: abortControllerRef.current.signal
+              });
+              if (res.ok) {
+                aiResponseStream = res;
+                break;
+              }
+            } catch {
+              aiResponseStream = null;
+            }
           }
         }
       }
@@ -743,7 +750,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                   return (
                     <div
                       key={c.id}
-                      onClick={() => switchConversation(c)}
+                      onClick={() => switchChat(c.id)}
                       className={`group flex items-center justify-between p-2.5 rounded-xl text-xs cursor-pointer transition ${
                         isActive
                           ? 'bg-white/10 text-white font-bold'
@@ -755,7 +762,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                         <span className="truncate">{c.title}</span>
                       </div>
                       <button
-                        onClick={e => deleteConversation(c.id, e)}
+                        onClick={e => deleteChat(c.id, e)}
                         className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-400 transition"
                         title="Delete Chat"
                       >

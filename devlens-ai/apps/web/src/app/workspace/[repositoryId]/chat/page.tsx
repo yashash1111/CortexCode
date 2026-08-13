@@ -21,7 +21,7 @@ CORE RULES:
 
 // Detects if the credential is an OAuth Bearer token or a plain API key
 function isOAuthToken(key: string): boolean {
-  return key.startsWith('AQ.') || key.startsWith('ya29.') || key.startsWith('1//');
+  return key.startsWith('ya29.') || key.startsWith('1//');
 }
 
 async function callGeminiDirect(message: string, history: Message[], apiKey: string): Promise<string> {
@@ -54,32 +54,43 @@ async function callGeminiDirect(message: string, history: Message[], apiKey: str
 
   const allContents = [...formattedHistory, { role: 'user', parts: [{ text: message }] }];
   const useOAuth = isOAuthToken(apiKey);
+  const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
 
-  const url = useOAuth
-    ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
-    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  let lastErrMsg = 'Gemini API call failed.';
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (useOAuth) headers['Authorization'] = `Bearer ${apiKey}`;
+  for (const modelName of candidateModels) {
+    const url = useOAuth
+      ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`
+      : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: allContents,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
-    })
-  });
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (useOAuth) headers['Authorization'] = `Bearer ${apiKey}`;
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    const errMsg = errData?.error?.message || `Gemini API error: ${res.status}`;
-    throw new Error(errMsg);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: allContents,
+          generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastErrMsg = errData?.error?.message || `Gemini API error: ${res.status}`;
+      }
+    } catch (err: any) {
+      lastErrMsg = err.message || 'Network request failed.';
+    }
   }
 
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response returned.';
+  throw new Error(lastErrMsg);
 }
 
 function SetupWizard({ onKeySet }: { onKeySet: (key: string) => void }) {
@@ -252,7 +263,7 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     try {
       return typeof window !== 'undefined' && typeof atob === 'function'
-        ? atob('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=')
+        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=')
         : '';
     } catch { return ''; }
   };
