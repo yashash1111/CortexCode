@@ -18,7 +18,7 @@ import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getApiUrl } from '@/lib/apiConfig';
-import { generateAIResponse } from '@/lib/aiResponseEngine';
+import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
 import type { AttachedFile } from '@/components/chat/types';
 
 function WorkspaceContent() {
@@ -420,7 +420,7 @@ function WorkspaceContent() {
         }
       } catch { /* ignore */ }
 
-      const fallbackResponse = generateAIResponse(fullPrompt, activeMode);
+      const fallbackResponse = getAPIErrorMessage();
       startTypewriterStream(fallbackResponse, tempAiMsgId);
     };
 

@@ -8,7 +8,7 @@ import {
   Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash
 } from 'lucide-react';
 import { getApiUrl } from '@/lib/apiConfig';
-import { generateAIResponse } from '@/lib/aiResponseEngine';
+import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
 import VoiceInput from './VoiceInput';
 
 interface Message {
@@ -531,7 +531,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       }
 
       if (!accumulatedContent) {
-        accumulatedContent = generateAIResponse(fullPrompt, activeMode, history);
+        accumulatedContent = getAPIErrorMessage();
       }
 
       // Complete message state
@@ -553,7 +553,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         // User stopped generation
       } else {
         console.error('[CortexCode AI] Error:', err);
-        const fallbackText = generateAIResponse(fullPrompt, activeMode, history);
+        const fallbackText = getAPIErrorMessage();
         setMessages(prev =>
           prev.map(m =>
             m.id === assistantMsgId
