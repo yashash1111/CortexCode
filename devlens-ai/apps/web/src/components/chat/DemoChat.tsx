@@ -43,6 +43,8 @@ const MODES: { id: AIMode; label: string; icon: any; desc: string }[] = [
 ];
 
 const MODELS = [
+  { id: 'cerebras-llama-3.3-70b', name: '🚀 Cerebras LLaMA 3.3 70B (Ultra-Fast 2000+ tokens/sec)' },
+  { id: 'cerebras-llama3.1-8b', name: '⚡ Cerebras LLaMA 3.1 8B (Instant Speed)' },
   { id: 'gemini-2.0-flash', name: '⚡ Gemini 2.0 Flash (Fast & Smart)' },
   { id: 'gemini-2.0-flash-lite', name: '🚀 Gemini 2.0 Flash Lite (Lightweight)' },
   { id: 'gemini-2.5-pro', name: '🧠 Gemini 2.5 Pro (Most Capable)' },
@@ -131,12 +133,14 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeMode, setActiveMode] = useState<AIMode>('chat');
-  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
+  const [selectedModel, setSelectedModel] = useState('cerebras-llama-3.3-70b');
   const [error, setError] = useState('');
   const [showApiKeyPanel, setShowApiKeyPanel] = useState(false);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showRightPanel, setShowRightPanel] = useState(true);
-  // Built-in Gemini API Key embedded inside application code
+  
+  // Built-in Cerebras & Gemini API Keys
+  const CEREBRAS_BUILTIN_KEY = process.env.NEXT_PUBLIC_CEREBRAS_API_KEY || 'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe';
   const getBuiltinKey = () => {
     if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     try {
@@ -146,9 +150,9 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     } catch { return ''; }
   };
   const BUILTIN_GEMINI_KEY = getBuiltinKey();
-  const [apiKey, setApiKey] = useState(BUILTIN_GEMINI_KEY);
+  const [apiKey, setApiKey] = useState(CEREBRAS_BUILTIN_KEY);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [apiProvider, setApiProvider] = useState<'gemini' | 'openai'>('gemini');
+  const [apiProvider, setApiProvider] = useState<'cerebras' | 'gemini' | 'openai'>('cerebras');
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: number; text: string }[]>([]);
   const [isListening, setIsListening] = useState(false);
@@ -224,21 +228,29 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       messages: []
     };
     const updated = [newConv, ...conversations];
+    saveConversations(updated);
     setActiveConvId(newId);
     setMessages([]);
-    saveConversations(updated);
-    inputRef.current?.focus();
+    setInput('');
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
   };
 
   // Switch Conversation
-  const switchConversation = (conv: Conversation) => {
-    setActiveConvId(conv.id);
-    setMessages(conv.messages);
-    inputRef.current?.focus();
+  const switchChat = (convId: string) => {
+    const target = conversations.find(c => c.id === convId);
+    if (target) {
+      setActiveConvId(convId);
+      setMessages(target.messages);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }
   };
 
   // Delete Conversation
-  const deleteConversation = (convId: string, e: React.MouseEvent) => {
+  const deleteChat = (convId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = conversations.filter(c => c.id !== convId);
     saveConversations(updated);
@@ -253,11 +265,10 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   };
 
   // Auto-generate title from prompt
-  const generateTitle = (text: string): string => {
-    const clean = text.trim().replace(/^[^a-zA-Z0-9]+/, '');
-    if (!clean) return 'New Chat';
-    const words = clean.split(/\s+/).slice(0, 5).join(' ');
-    return words.length > 30 ? words.slice(0, 27) + '...' : words;
+  const generateTitle = (text: string) => {
+    const clean = text.replace(/```[\s\S]*?```/g, '').trim();
+    if (clean.length <= 30) return clean;
+    return clean.slice(0, 30) + '...';
   };
 
   // Voice Recognition setup
@@ -293,39 +304,39 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const stopGeneration = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Send Message with Word-by-Word Streaming
-  const sendMessage = useCallback(async (text: string, overrideMode?: AIMode) => {
-    const trimmed = text.trim();
+  const sendMessage = async (promptToSend?: string, modeOverride?: AIMode) => {
+    const rawPrompt = promptToSend !== undefined ? promptToSend : input;
+    const trimmed = rawPrompt.trim();
     if ((!trimmed && attachedFiles.length === 0) || loading) return;
 
-    const modeToUse = overrideMode || activeMode;
-    let fullPrompt = trimmed;
+    setError('');
+    const modeToUse = modeOverride || activeMode;
 
+    let fullPrompt = trimmed;
     if (attachedFiles.length > 0) {
-      const fileContext = attachedFiles
-        .map(f => `--- Attached File: ${f.name} ---\n${f.text}`)
-        .join('\n\n');
-      fullPrompt = `${fileContext}\n\nUser Question:\n${trimmed || 'Analyze the attached file(s).'}`;
+      const fileContext = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.text}`).join('\n\n');
+      fullPrompt = `${fileContext}\n\nUser Question:\n${trimmed}`;
     }
 
-    const userMsgId = 'msg-u-' + Date.now();
-    const assistantMsgId = 'msg-ai-' + Date.now();
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsgId = 'msg-' + Date.now();
+    const assistantMsgId = 'msg-' + (Date.now() + 1);
 
-    const userMsg: Message = {
+    const userMessage: Message = {
       id: userMsgId,
       role: 'user',
-      content: trimmed || `[Attached ${attachedFiles.length} file(s)]`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      content: trimmed,
+      timestamp,
       mode: modeToUse,
       attachments: attachedFiles.map(f => ({ name: f.name, size: f.size }))
     };
 
-    const initialAssistantMsg: Message = {
+    const assistantPlaceholder: Message = {
       id: assistantMsgId,
       role: 'assistant',
       content: '',
@@ -334,19 +345,17 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       isStreaming: true
     };
 
-    const newMessages = [...messages, userMsg, initialAssistantMsg];
+    const newMessages = [...messages, userMessage, assistantPlaceholder];
     setMessages(newMessages);
     setInput('');
     setAttachedFiles([]);
     setLoading(true);
-    setError('');
 
-    // Ensure active conversation session
     let currentConvId = activeConvId;
     let updatedConvs = [...conversations];
     let activeConv = updatedConvs.find(c => c.id === currentConvId);
 
-    if (!activeConv) {
+    if (!activeConv || !currentConvId) {
       currentConvId = 'conv-' + Date.now();
       setActiveConvId(currentConvId);
       activeConv = {
@@ -362,7 +371,9 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
     // Send history (role + content)
     const history = messages.map(m => ({ role: m.role, content: m.content }));
-    const userKeys: Record<string, string> = {};
+    const userKeys: Record<string, string> = {
+      cerebras: CEREBRAS_BUILTIN_KEY
+    };
     if (apiKey.trim()) {
       userKeys[apiProvider] = apiKey.trim();
     }
@@ -370,11 +381,6 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     abortControllerRef.current = new AbortController();
 
     try {
-      // ── Call Gemini API directly from the browser (no backend needed) ──
-      const geminiKey = userKeys['gemini'] || BUILTIN_GEMINI_KEY;
-      const modelName = selectedModel.startsWith('gpt') ? 'gemini-2.0-flash' : selectedModel;
-
-      // Build system prompt based on mode
       const systemInstructions: Record<string, string> = {
         chat: 'You are CortexCode AI, a highly intelligent general-purpose assistant. Answer any question thoughtfully, conversationally and accurately.',
         debug: 'You are CortexCode AI in Debug Mode. Identify the root cause of bugs, explain the issue clearly, and provide exact corrected code.',
@@ -384,33 +390,63 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       };
       const systemPrompt = systemInstructions[modeToUse] || systemInstructions.chat;
 
-      // Format conversation history for Gemini
-      const geminiContents = [
-        ...history.map(m => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        })),
-        { role: 'user', parts: [{ text: fullPrompt }] }
-      ];
+      let aiResponseStream: Response | null = null;
+      const cerebrasKeyToUse = userKeys['cerebras'] || apiKey || CEREBRAS_BUILTIN_KEY;
 
-      let geminiResponse: Response | null = null;
-
-      // Only attempt direct Gemini API fetch if valid API key is present
-      if (geminiKey && geminiKey.trim() !== '' && geminiKey !== 'demo_token' && geminiKey.length > 10) {
-        const isOAuth = geminiKey.startsWith('AQ.') || geminiKey.startsWith('ya29.') || geminiKey.startsWith('1//');
-        const fetchUrl = isOAuth
-          ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`
-          : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`;
-
-        const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (isOAuth) {
-          requestHeaders['Authorization'] = `Bearer ${geminiKey}`;
-        }
-
+      // ── 1. Attempt Cerebras API stream directly from browser ──
+      if (selectedModel.startsWith('cerebras') || apiProvider === 'cerebras' || cerebrasKeyToUse) {
+        const cerebrasModel = selectedModel.includes('8b') ? 'llama3.1-8b' : 'llama-3.3-70b';
         try {
-          geminiResponse = await fetch(
-            fetchUrl,
-            {
+          aiResponseStream = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${cerebrasKeyToUse}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: cerebrasModel,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...history.map(m => ({ role: m.role, content: m.content })),
+                { role: 'user', content: fullPrompt }
+              ],
+              temperature: 0.7,
+              max_tokens: 2048,
+              stream: true
+            }),
+            signal: abortControllerRef.current.signal
+          });
+        } catch {
+          aiResponseStream = null;
+        }
+      }
+
+      // ── 2. Direct Gemini API fallback ──
+      if (!aiResponseStream || !aiResponseStream.ok) {
+        const geminiKey = userKeys['gemini'] || BUILTIN_GEMINI_KEY;
+        const modelName = selectedModel.startsWith('gpt') ? 'gemini-2.0-flash' : selectedModel.startsWith('cerebras') ? 'gemini-2.0-flash' : selectedModel;
+
+        const geminiContents = [
+          ...history.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          })),
+          { role: 'user', parts: [{ text: fullPrompt }] }
+        ];
+
+        if (geminiKey && geminiKey.trim() !== '' && geminiKey.length > 10) {
+          const isOAuth = geminiKey.startsWith('AQ.') || geminiKey.startsWith('ya29.') || geminiKey.startsWith('1//');
+          const fetchUrl = isOAuth
+            ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse`
+            : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${geminiKey}&alt=sse`;
+
+          const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (isOAuth) {
+            requestHeaders['Authorization'] = `Bearer ${geminiKey}`;
+          }
+
+          try {
+            aiResponseStream = await fetch(fetchUrl, {
               method: 'POST',
               headers: requestHeaders,
               body: JSON.stringify({
@@ -419,17 +455,17 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                 generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
               }),
               signal: abortControllerRef.current.signal
-            }
-          );
-        } catch {
-          geminiResponse = null;
+            });
+          } catch {
+            aiResponseStream = null;
+          }
         }
       }
 
-      // If direct Gemini request was omitted or failed, call backend stream endpoint
-      if (!geminiResponse || !geminiResponse.ok) {
+      // ── 3. Backend API stream fallback ──
+      if (!aiResponseStream || !aiResponseStream.ok) {
         try {
-          geminiResponse = await fetch(`${getApiUrl()}/api/demo/chat/stream`, {
+          aiResponseStream = await fetch(`${getApiUrl()}/api/demo/chat/stream`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -441,14 +477,14 @@ export default function DemoChat({ onClose }: DemoChatProps) {
             signal: abortControllerRef.current.signal
           });
         } catch {
-          geminiResponse = null;
+          aiResponseStream = null;
         }
       }
 
       let accumulatedContent = '';
 
-      if (geminiResponse && geminiResponse.ok && geminiResponse.body) {
-        const reader = geminiResponse.body.getReader();
+      if (aiResponseStream && aiResponseStream.ok && aiResponseStream.body) {
+        const reader = aiResponseStream.body.getReader();
         const decoder = new TextDecoder('utf-8');
 
         while (true) {
@@ -464,7 +500,11 @@ export default function DemoChat({ onClose }: DemoChatProps) {
               if (!dataStr || dataStr === '[DONE]') continue;
               try {
                 const parsed = JSON.parse(dataStr);
-                const token = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || parsed?.content;
+                const token =
+                  parsed?.choices?.[0]?.delta?.content ||
+                  parsed?.candidates?.[0]?.content?.parts?.[0]?.text ||
+                  parsed?.content;
+
                 if (token) {
                   accumulatedContent += token;
                   setMessages(prev =>
@@ -503,9 +543,9 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        // User stopped generation manually
+        // User stopped generation
       } else {
-        console.error('[CortexCode AI] DemoChat error gracefully handled:', err);
+        console.error('[CortexCode AI] Error:', err);
         const fallbackText = generateAIResponse(fullPrompt, activeMode, history);
         setMessages(prev =>
           prev.map(m =>
@@ -524,9 +564,10 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       abortControllerRef.current = null;
       inputRef.current?.focus();
     }
-  }, [messages, loading, activeMode, apiKey, apiProvider, attachedFiles, activeConvId, conversations, saveConversations, selectedModel]);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);

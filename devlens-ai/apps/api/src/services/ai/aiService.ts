@@ -1,3 +1,4 @@
+import { CerebrasProvider } from './providers/cerebrasProvider';
 import { OpenAIProvider } from './providers/openaiProvider';
 import { GeminiProvider } from './providers/geminiProvider';
 import { ClaudeProvider } from './providers/claudeProvider';
@@ -33,6 +34,7 @@ ADVANCED CODING ENGINE STANDARDS & LANGUAGE PRIORITY
    - Casual conversation ("hi", "how r u", "good", "tell me a joke") must remain natural.`;
 
 export interface UserApiKeys {
+  cerebras?: string;
   gemini?: string;
   openai?: string;
   anthropic?: string;
@@ -60,7 +62,7 @@ Do NOT default to JavaScript under any circumstances.`;
   static async generateResponse(
     prompt: string,
     history: any[] = [],
-    modelName: string = 'gemini-2.0-flash',
+    modelName: string = 'llama-3.3-70b',
     mode: string = 'chat',
     userKeys?: UserApiKeys
   ): Promise<string> {
@@ -73,6 +75,7 @@ Do NOT default to JavaScript under any circumstances.`;
     const defaultKey = () => {
       try { return Buffer.from('QVEuQWI4Uk42TFhTU2ttcTZub19uUjVUQ3dLb3pPaE9TdDF5LUVMc21aRnhYS1VpamZVN1E=', 'base64').toString('utf-8'); } catch { return ''; }
     };
+    const cerebrasKey = userKeys?.cerebras || process.env.CEREBRAS_API_KEY || CerebrasProvider.DEFAULT_CEREBRAS_KEY;
     const geminiKey = userKeys?.gemini || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || defaultKey();
     const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
     const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
@@ -81,7 +84,22 @@ Do NOT default to JavaScript under any circumstances.`;
     const detectedLang = FallbackProvider.extractLanguage(prompt);
     console.log(`[AI REQUEST] mode=${mode} | model=${modelName} | detectedLanguage=${detectedLang || 'none'} | userMessageLength=${prompt.length}`);
 
-    // 1. Attempt Gemini Provider
+    // 1. Attempt Cerebras Provider (High Performance Inference Engine)
+    if (
+      (providerEnv === 'cerebras' || providerEnv === 'auto') &&
+      cerebrasKey &&
+      cerebrasKey !== 'dummy'
+    ) {
+      try {
+        const result = await CerebrasProvider.generateResponse(prompt, windowedHistory, modelName, systemPrompt, cerebrasKey);
+        console.log(`[AI RESPONSE] provider=cerebras | model=${modelName} | success=true | responseLength=${result.length}`);
+        return result;
+      } catch (err: any) {
+        console.warn(`[AIService] Cerebras Provider failed: ${err.message}. Trying next provider...`);
+      }
+    }
+
+    // 2. Attempt Gemini Provider
     if (
       (providerEnv === 'gemini' || providerEnv === 'auto') &&
       geminiKey &&
@@ -96,7 +114,7 @@ Do NOT default to JavaScript under any circumstances.`;
       }
     }
 
-    // 2. Attempt OpenAI Provider
+    // 3. Attempt OpenAI Provider
     if (
       (providerEnv === 'openai' || providerEnv === 'auto') &&
       openaiKey &&
@@ -111,7 +129,7 @@ Do NOT default to JavaScript under any circumstances.`;
       }
     }
 
-    // 3. Attempt Claude Provider
+    // 4. Attempt Claude Provider
     if (
       (providerEnv === 'claude' || providerEnv === 'anthropic' || providerEnv === 'auto') &&
       anthropicKey &&
@@ -126,8 +144,9 @@ Do NOT default to JavaScript under any circumstances.`;
       }
     }
 
-    // 4. Fallback Language-Locked Neural Engine
+    // 5. Fallback Language-Locked Neural Engine
     console.log(`[AIService] Utilizing FallbackProvider for prompt: "${prompt.slice(0, 30)}..."`);
     return FallbackProvider.generateResponse(prompt, windowedHistory, mode);
   }
 }
+

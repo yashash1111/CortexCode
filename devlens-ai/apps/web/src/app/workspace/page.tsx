@@ -377,6 +377,7 @@ function WorkspaceContent() {
     };
 
     const effectiveKeys = {
+      cerebras: customApiKeys.cerebras || process.env.NEXT_PUBLIC_CEREBRAS_API_KEY || 'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe',
       gemini: customApiKeys.gemini || getBuiltinKey(),
       openai: customApiKeys.openai,
       anthropic: customApiKeys.anthropic
