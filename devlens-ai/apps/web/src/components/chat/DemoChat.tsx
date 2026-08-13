@@ -390,40 +390,14 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       const systemPrompt = systemInstructions[modeToUse] || systemInstructions.chat;
 
       let aiResponseStream: Response | null = null;
+      const geminiKeyToUse = userKeys['gemini'] || BUILTIN_GEMINI_KEY;
       const cerebrasKeyToUse = userKeys['cerebras'] || apiKey || CEREBRAS_BUILTIN_KEY;
 
-      // ── 1. Attempt Cerebras API stream directly from browser ──
-      if (selectedModel.startsWith('cerebras') || apiProvider === 'cerebras' || cerebrasKeyToUse) {
-        const cerebrasModel = selectedModel.includes('8b') ? 'llama3.1-8b' : 'llama-3.3-70b';
-        try {
-          aiResponseStream = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${cerebrasKeyToUse}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: cerebrasModel,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...history.map(m => ({ role: m.role, content: m.content })),
-                { role: 'user', content: fullPrompt }
-              ],
-              temperature: 0.7,
-              max_tokens: 2048,
-              stream: true
-            }),
-            signal: abortControllerRef.current.signal
-          });
-        } catch {
-          aiResponseStream = null;
-        }
-      }
-
-      // ── 2. Direct Gemini API fallback ──
-      if (!aiResponseStream || !aiResponseStream.ok) {
-        const geminiKey = userKeys['gemini'] || BUILTIN_GEMINI_KEY;
+      // ── 1. Attempt Gemini API stream directly from browser (Primary Verified Provider) ──
+      if (geminiKeyToUse && geminiKeyToUse.trim() !== '' && geminiKeyToUse.length > 10) {
         const targetModel = selectedModel.startsWith('gemini') ? selectedModel : 'gemini-3.6-flash';
+        const isOAuth = geminiKeyToUse.startsWith('ya29.') || geminiKeyToUse.startsWith('1//');
+        const candidateModels = [targetModel, 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'].filter((v, i, a) => a.indexOf(v) === i);
 
         const geminiContents = [
           ...history.map(m => ({
@@ -433,38 +407,63 @@ export default function DemoChat({ onClose }: DemoChatProps) {
           { role: 'user', parts: [{ text: fullPrompt }] }
         ];
 
-        if (geminiKey && geminiKey.trim() !== '' && geminiKey.length > 10) {
-          const isOAuth = geminiKey.startsWith('ya29.') || geminiKey.startsWith('1//');
-          const candidateModels = [targetModel, 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'].filter((v, i, a) => a.indexOf(v) === i);
+        for (const mName of candidateModels) {
+          const fetchUrl = isOAuth
+            ? `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?alt=sse`
+            : `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?key=${geminiKeyToUse}&alt=sse`;
 
-          for (const mName of candidateModels) {
-            const fetchUrl = isOAuth
-              ? `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?alt=sse`
-              : `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?key=${geminiKey}&alt=sse`;
+          const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (isOAuth) {
+            requestHeaders['Authorization'] = `Bearer ${geminiKeyToUse}`;
+          }
 
-            const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (isOAuth) {
-              requestHeaders['Authorization'] = `Bearer ${geminiKey}`;
+          try {
+            const res = await fetch(fetchUrl, {
+              method: 'POST',
+              headers: requestHeaders,
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: geminiContents,
+                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+              }),
+              signal: abortControllerRef.current.signal
+            });
+            if (res.ok) {
+              aiResponseStream = res;
+              break;
             }
+          } catch {
+            aiResponseStream = null;
+          }
+        }
+      }
 
-            try {
-              const res = await fetch(fetchUrl, {
-                method: 'POST',
-                headers: requestHeaders,
-                body: JSON.stringify({
-                  systemInstruction: { parts: [{ text: systemPrompt }] },
-                  contents: geminiContents,
-                  generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-                }),
-                signal: abortControllerRef.current.signal
-              });
-              if (res.ok) {
-                aiResponseStream = res;
-                break;
-              }
-            } catch {
-              aiResponseStream = null;
-            }
+      // ── 2. Attempt Cerebras API stream fallback ──
+      if (!aiResponseStream || !aiResponseStream.ok) {
+        if (selectedModel.startsWith('cerebras') || apiProvider === 'cerebras') {
+          const cerebrasModel = selectedModel.includes('120b') ? 'gpt-oss-120b' : 'gemma-4-31b';
+          try {
+            aiResponseStream = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${cerebrasKeyToUse}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: cerebrasModel,
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  ...history.map(m => ({ role: m.role, content: m.content })),
+                  { role: 'user', content: fullPrompt }
+                ],
+                temperature: 0.7,
+                max_tokens: 2048,
+                stream: true
+              }),
+              signal: abortControllerRef.current.signal
+            });
+          } catch {
+            aiResponseStream = null;
           }
         }
       }
@@ -493,23 +492,26 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       if (aiResponseStream && aiResponseStream.ok && aiResponseStream.body) {
         const reader = aiResponseStream.body.getReader();
         const decoder = new TextDecoder('utf-8');
+        let sseBuffer = '';
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
 
-          const chunkText = decoder.decode(value, { stream: true });
-          const lines = chunkText.split('\n');
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const dataStr = line.slice(6).trim();
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data: ')) {
+              const dataStr = trimmed.slice(6).trim();
               if (!dataStr || dataStr === '[DONE]') continue;
               try {
                 const parsed = JSON.parse(dataStr);
                 const token =
-                  parsed?.choices?.[0]?.delta?.content ||
                   parsed?.candidates?.[0]?.content?.parts?.[0]?.text ||
+                  parsed?.choices?.[0]?.delta?.content ||
                   parsed?.content;
 
                 if (token) {
@@ -527,6 +529,22 @@ export default function DemoChat({ onClose }: DemoChatProps) {
               }
             }
           }
+        }
+
+        if (sseBuffer.trim().startsWith('data: ')) {
+          try {
+            const dataStr = sseBuffer.trim().slice(6).trim();
+            if (dataStr && dataStr !== '[DONE]') {
+              const parsed = JSON.parse(dataStr);
+              const token =
+                parsed?.candidates?.[0]?.content?.parts?.[0]?.text ||
+                parsed?.choices?.[0]?.delta?.content ||
+                parsed?.content;
+              if (token) {
+                accumulatedContent += token;
+              }
+            }
+          } catch { /* ignore */ }
         }
       }
 
