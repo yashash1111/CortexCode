@@ -6,10 +6,12 @@ import {
   Copy, Check, Download, Mic, MicOff, Paperclip, Bug, Lightbulb,
   FileText, ShieldCheck, MessageSquare, Info, ChevronRight,
   Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash,
-  CornerUpLeft, Brain, ChevronDown, ChevronUp, Quote, Zap
+  CornerUpLeft, Brain, ChevronDown, ChevronUp, Quote, Zap,
+  Volume2, VolumeX, Pause, Play
 } from 'lucide-react';
 import { getApiUrl } from '@/lib/apiConfig';
 import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import VoiceInput from './VoiceInput';
 
 interface Message {
@@ -131,6 +133,7 @@ function renderMarkdownWithCopy(text: string): string {
 }
 
 export default function DemoChat({ onClose }: DemoChatProps) {
+  const tts = useTextToSpeech();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -946,6 +949,19 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                       {copiedMsgId === msg.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
                       <span>{copiedMsgId === msg.id ? 'Copied' : 'Copy'}</span>
                     </button>
+                    {msg.role === 'assistant' && tts.isSupported && (
+                      <>
+                        <span className="text-zinc-700">•</span>
+                        <button
+                          onClick={() => tts.isSpeaking ? tts.stop() : tts.speak(msg.content)}
+                          className="hover:text-purple-300 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-white/5 transition text-purple-400/80 hover:text-purple-300"
+                          title="Read aloud with clear Gemini/Siri voice"
+                        >
+                          {tts.isSpeaking ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                          <span>{tts.isSpeaking ? 'Stop Voice' : 'Read Aloud'}</span>
+                        </button>
+                      </>
+                    )}
                   </div>
 
                 </div>
