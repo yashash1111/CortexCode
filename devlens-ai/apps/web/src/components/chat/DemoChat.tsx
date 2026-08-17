@@ -137,7 +137,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeMode, setActiveMode] = useState<AIMode>('chat');
-  const [selectedModel, setSelectedModel] = useState('cerebras-llama-3.3-70b');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.6-flash');
   const [error, setError] = useState('');
   const [showApiKeyPanel, setShowApiKeyPanel] = useState(false);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
