@@ -18,17 +18,19 @@ export async function POST(req: NextRequest) {
 
     const fullResponse = await generateAiResponseServer(message.trim(), history, mode, userKeys);
 
-    // Stream SSE back to client
+    // Stream SSE back to client at ultra-high speed
     const encoder = new TextEncoder();
     const words = fullResponse.split(' ');
 
     const stream = new ReadableStream({
       async start(controller) {
-        for (let i = 0; i < words.length; i++) {
-          const wordChunk = (i === 0 ? '' : ' ') + words[i];
-          const data = JSON.stringify({ content: wordChunk });
+        const chunkSize = 2; // Stream 2 words per tick for ultra-fast, smooth rendering
+        for (let i = 0; i < words.length; i += chunkSize) {
+          const chunkWords = words.slice(i, i + chunkSize);
+          const chunkStr = (i === 0 ? '' : ' ') + chunkWords.join(' ');
+          const data = JSON.stringify({ content: chunkStr });
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-          await new Promise(r => setTimeout(r, 15));
+          await new Promise(r => setTimeout(r, 3));
         }
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();

@@ -681,19 +681,6 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         {/* Right Header Controls */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowApiKeyPanel(true)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
-              (savedApiKeys.gemini || savedApiKeys.cerebras || apiKey)
-                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
-                : 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30 animate-pulse'
-            }`}
-            title="Configure AI API Keys"
-          >
-            <Key size={13} />
-            <span className="hidden sm:inline">{(savedApiKeys.gemini || savedApiKeys.cerebras || apiKey) ? 'API Key Active' : 'Set API Key'}</span>
-          </button>
-
-          <button
             onClick={exportChatAsMarkdown}
             disabled={messages.length === 0}
             className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-30 transition"
@@ -898,42 +885,21 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                     </div>
                   )}
 
-                  {/* Thinking Accordion (ChatGPT style) */}
-                  {msg.role === 'assistant' && (msg.isThinking || msg.thinkingDuration) ? (
-                    <div className="mb-3 rounded-xl border border-purple-500/30 bg-purple-950/20 p-2.5 backdrop-blur-md transition-all">
-                      <button
-                        onClick={() => toggleThinking(msg.id)}
-                        className="flex items-center justify-between w-full text-xs font-semibold text-purple-300 hover:text-purple-200 transition"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Brain size={14} className={`text-purple-400 ${msg.isThinking ? 'animate-pulse' : ''}`} />
-                          <span>
-                            {msg.isThinking
-                              ? 'CortexCode is thinking...'
-                              : `Thought for ${(msg.thinkingDuration || 1.1).toFixed(1)}s`}
-                          </span>
-                        </div>
-                        {openThinkingMap[msg.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      </button>
-
-                      {(openThinkingMap[msg.id] || msg.isThinking) && (
-                        <div className="mt-2.5 pt-2.5 border-t border-purple-500/20 text-[11px] font-mono text-purple-300/80 space-y-1.5 pl-2">
-                          <div className="flex items-center gap-2">
-                            <Zap size={11} className="text-purple-400 shrink-0" />
-                            <span>Analyzing prompt intent & active [{msg.mode || 'chat'}] mode parameters</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Sparkles size={11} className="text-blue-400 shrink-0" />
-                            <span>Retrieving ultra-fast streaming context via CortexEngine</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Bot size={11} className="text-emerald-400 shrink-0" />
-                            <span>Formulating structured response with code generation</span>
-                          </div>
-                        </div>
-                      )}
+                  {/* Sleek Ultra-Fast Thinking Animation */}
+                  {msg.role === 'assistant' && msg.isThinking && !msg.content && (
+                    <div className="flex items-center gap-2.5 py-2 px-3.5 mb-2.5 rounded-2xl bg-purple-950/30 border border-purple-500/20 w-fit backdrop-blur-md animate-fade-in-up">
+                      <div className="relative flex items-center justify-center">
+                        <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping absolute opacity-75" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
+                      </div>
+                      <span className="text-xs font-semibold text-purple-200">CortexCode AI is thinking</span>
+                      <div className="flex gap-1 items-center ml-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '120ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '240ms' }} />
+                      </div>
                     </div>
-                  ) : null}
+                  )}
 
                   <div
                     className={`inline-block p-4 rounded-2xl text-sm leading-relaxed text-left ${
@@ -1146,71 +1112,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
       </div>
 
-      {/* API Key Modal */}
-      {showApiKeyPanel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in-up">
-          <div className="w-full max-w-md bg-zinc-900 border border-white/20 rounded-2xl p-6 shadow-2xl relative">
-            <button
-              onClick={() => setShowApiKeyPanel(false)}
-              className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 transition"
-            >
-              <X size={18} />
-            </button>
-            <h3 className="text-base font-bold text-white flex items-center gap-2 mb-2">
-              <Key size={18} className="text-purple-400" />
-              Configure AI API Key
-            </h3>
-            <p className="text-xs text-zinc-400 mb-4">
-              Enter your Gemini or Cerebras API key below. Keys are stored locally in your browser and used for live AI responses.
-            </p>
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1 flex justify-between">
-                  <span>Google Gemini API Key</span>
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-purple-400 hover:underline text-[11px]"
-                  >
-                    Get Free Key →
-                  </a>
-                </label>
-                <input
-                  type="password"
-                  placeholder="AIzaSy..."
-                  value={savedApiKeys.gemini || ''}
-                  onChange={e => setSavedApiKeys({ ...savedApiKeys, gemini: e.target.value })}
-                  className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-xl text-xs font-mono text-white outline-none focus:border-purple-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Cerebras API Key
-                </label>
-                <input
-                  type="password"
-                  placeholder="csk-..."
-                  value={savedApiKeys.cerebras || ''}
-                  onChange={e => setSavedApiKeys({ ...savedApiKeys, cerebras: e.target.value })}
-                  className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-xl text-xs font-mono text-white outline-none focus:border-purple-500"
-                />
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                try {
-                  localStorage.setItem('cortexcode_user_api_keys', JSON.stringify(savedApiKeys));
-                } catch { /* ignore */ }
-                setShowApiKeyPanel(false);
-              }}
-              className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition"
-            >
-              Save API Keys
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Hidden File Input */}
       <input

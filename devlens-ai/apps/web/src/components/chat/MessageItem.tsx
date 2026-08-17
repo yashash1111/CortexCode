@@ -241,21 +241,18 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
 
         {/* Message Content Body */}
         {message.isThinking || (!message.content && message.isStreaming) ? (
-          <div className="py-2 px-1 flex items-center gap-3">
+          <div className="flex items-center gap-2.5 py-2 px-3.5 my-1 rounded-2xl bg-purple-950/30 border border-purple-500/20 w-fit backdrop-blur-md animate-fade-in-up">
             <div className="relative flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border-2 border-purple-500/30 border-t-purple-500 animate-spin" />
-              <div className="absolute inset-0 rounded-full bg-purple-500/20 animate-ping opacity-30" />
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping absolute opacity-75" />
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-400" />
             </div>
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
-                <span>{message.thinkingText || 'CortexCode AI is thinking'}</span>
-                <span className="flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-500 font-mono">Analyzing intent & searching project context...</p>
+            <span className="text-xs font-semibold text-purple-200">
+              {message.thinkingText || 'CortexCode AI is thinking'}
+            </span>
+            <div className="flex gap-1 items-center ml-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '120ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '240ms' }} />
             </div>
           </div>
         ) : (
