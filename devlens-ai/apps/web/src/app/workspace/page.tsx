@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import {
   Menu, Sparkles, ChevronDown, Check, Activity, LogOut, X,
-  BarChart3, Key, TrendingUp, Zap, MessageSquare, Code2, FileText
+  BarChart3, Key, TrendingUp, Zap, MessageSquare, Code2, FileText,
+  Search, LayoutDashboard, Cpu, Layers, BookOpen, Target, Bot, ShieldCheck, Award
 } from 'lucide-react';
 import Sidebar from '@/components/chat/Sidebar';
 import EmptyState from '@/components/chat/EmptyState';
@@ -18,8 +19,15 @@ import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getApiUrl } from '@/lib/apiConfig';
-import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
+import { getAPIErrorMessage, generateLocalAIResponse } from '@/lib/aiResponseEngine';
 import type { AttachedFile } from '@/components/chat/types';
+
+import CommandPalette, { WorkspaceTab } from '@/components/workspace/CommandPalette';
+import StudyMode from '@/components/workspace/StudyMode';
+import GoalTracker from '@/components/workspace/GoalTracker';
+import MultiAgentView from '@/components/workspace/MultiAgentView';
+import SecuritySettingsView from '@/components/workspace/SecuritySettingsView';
+import AssessmentHub from '@/components/assessment/AssessmentHub';
 
 function WorkspaceContent() {
   const router = useRouter();
@@ -30,6 +38,10 @@ function WorkspaceContent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Workspace Tab & Command Palette State
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>('chat');
+  const [showCmdPalette, setShowCmdPalette] = useState(false);
 
   // Mode State
   const [activeMode, setActiveMode] = useState<ChatMode>('chat');
@@ -368,77 +380,58 @@ function WorkspaceContent() {
     const fileContext = currentFiles.length > 0 ? buildFileContext(currentFiles) : '';
     const fullPrompt = fileContext ? `${fileContext}\n\nUser request: ${userMsg.content}` : userMsg.content;
 
-    const getBuiltinKey = () => {
-      if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      try {
-        return typeof window !== 'undefined' && typeof atob === 'function'
-          ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=')
-          : '';
-      } catch { return ''; }
-    };
-
     const effectiveKeys = {
-      cerebras: customApiKeys.cerebras || process.env.NEXT_PUBLIC_CEREBRAS_API_KEY || 'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe',
-      gemini: customApiKeys.gemini || getBuiltinKey(),
-      openai: customApiKeys.openai,
-      anthropic: customApiKeys.anthropic
+      cerebras: customApiKeys.cerebras || undefined,
+      gemini: customApiKeys.gemini || undefined,
+      openai: customApiKeys.openai || undefined,
+      anthropic: customApiKeys.anthropic || undefined
     };
 
-    const callDirectGeminiFallback = async () => {
-      try {
-        const key = effectiveKeys.gemini;
-        if (!key) throw new Error('No Gemini key');
-        const isOAuth = key.startsWith('ya29.') || key.startsWith('1//');
-        const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
-
-        for (const mName of candidateModels) {
-          const fetchUrl = isOAuth
-            ? `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${mName}:generateContent?key=${key}`;
-
-          const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (isOAuth) {
-            requestHeaders['Authorization'] = `Bearer ${key}`;
-          }
-
-          try {
-            const res = await fetch(fetchUrl, {
-              method: 'POST',
-              headers: requestHeaders,
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-              })
-            });
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              startTypewriterStream(text, tempAiMsgId);
-              return;
-            }
-          } catch { /* try next model */ }
-        }
-      } catch { /* ignore */ }
-
-      const fallbackResponse = getAPIErrorMessage();
-      startTypewriterStream(fallbackResponse, tempAiMsgId);
-    };
-
-    // Call Backend API
-    axios.post(`${getApiUrl()}/api/conversations/${currentConvId}/messages`, {
-      content: fullPrompt,
-      mode: activeMode,
-      attachments: currentFiles,
-      userKeys: effectiveKeys
-    }).then((res) => {
+    // Call Backend API with 60s timeout
+    axios.post(
+      `${getApiUrl()}/api/conversations/${currentConvId}/messages`,
+      {
+        content: fullPrompt,
+        mode: activeMode,
+        attachments: currentFiles,
+        userKeys: effectiveKeys
+      },
+      { timeout: 60000, withCredentials: true }
+    ).then((res) => {
       const aiText = res.data?.data?.aiResponse?.content;
       if (aiText && !aiText.includes("couldn't generate a response")) {
         startTypewriterStream(aiText, tempAiMsgId);
       } else {
-        callDirectGeminiFallback();
+        const fallbackResponse = generateLocalAIResponse(userMsg.content);
+        startTypewriterStream(fallbackResponse, tempAiMsgId);
       }
-    }).catch(() => {
-      callDirectGeminiFallback();
+    }).catch((err) => {
+      // Check for unified /api/chat fallback
+      axios.post(
+        `${getApiUrl()}/api/chat`,
+        {
+          message: fullPrompt,
+          conversationId: currentConvId,
+          mode: activeMode,
+          userKeys: effectiveKeys
+        },
+        { timeout: 60000, withCredentials: true }
+      ).then((chatRes) => {
+        const text = chatRes.data?.data?.content;
+        if (text) {
+          startTypewriterStream(text, tempAiMsgId);
+        } else {
+          const fallbackResponse = generateLocalAIResponse(userMsg.content);
+          startTypewriterStream(fallbackResponse, tempAiMsgId);
+        }
+      }).catch((chatErr) => {
+        const errorMsg = chatErr?.response?.data?.error?.message ||
+          (chatErr?.code === 'ECONNABORTED'
+            ? 'Request timed out. Please try again.'
+            : 'Unable to connect to CortexCode server. Please verify your connection.');
+        const fallbackResponse = generateLocalAIResponse(userMsg.content) || `⚠️ ${errorMsg}`;
+        startTypewriterStream(fallbackResponse, tempAiMsgId);
+      });
     });
   };
 
@@ -565,105 +558,169 @@ function WorkspaceContent() {
         userEmail={userProfile.email}
       />
 
-      {/* MAIN CHAT CANVAS */}
-      <main className="flex-1 flex flex-col h-full bg-zinc-950/70 backdrop-blur-xl relative overflow-hidden">
+      {/* GLOBAL COMMAND PALETTE (Cmd+K) */}
+      <CommandPalette
+        isOpen={showCmdPalette}
+        onClose={() => setShowCmdPalette(false)}
+        onSelectTab={setActiveWorkspaceTab}
+      />
+
+      {/* MAIN WORKSPACE CANVAS */}
+      <main className="flex-1 flex flex-col h-full bg-[#0a0a0a] relative overflow-hidden">
 
         {/* TOP FLOATING HEADER */}
-        <header className="h-14 border-b border-white/10 bg-zinc-900/60 backdrop-blur-2xl px-4 md:px-6 flex items-center justify-between z-10 shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="h-12 border-b border-[#262626] bg-[#121212] px-4 flex items-center justify-between z-10 shrink-0">
+          <div className="flex items-center gap-2.5">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="md:hidden p-2 text-zinc-300 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              className="md:hidden p-1.5 text-neutral-400 hover:text-white hover:bg-[#1a1a1a] rounded transition-colors"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
 
-            {/* Model Selector Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowModelDropdown(!showModelDropdown)}
-                className="flex items-center gap-2 px-3.5 py-1.5 bg-black/50 hover:bg-black/70 border border-white/15 rounded-xl text-xs font-bold text-zinc-200 hover:text-white transition-all backdrop-blur-md"
-              >
-                <Sparkles size={14} className="text-purple-400" />
-                <span>{selectedModel}</span>
-                <ChevronDown size={14} className="text-zinc-400" />
-              </button>
+            {/* Command Palette Launcher */}
+            <button
+              onClick={() => setShowCmdPalette(true)}
+              className="flex items-center gap-2 px-2.5 py-1 bg-[#171717] hover:bg-[#1f1f1f] border border-[#262626] rounded text-xs font-mono text-neutral-400 hover:text-white transition-all"
+              title="Global Command Palette (Cmd+K)"
+            >
+              <Search size={13} className="text-blue-400" />
+              <span className="hidden sm:inline">Search workspace...</span>
+              <kbd className="px-1.5 py-0.2 bg-[#0a0a0a] rounded text-[10px] text-neutral-400 font-sans border border-[#262626]">⌘K</kbd>
+            </button>
 
-              {showModelDropdown && (
-                <div className="absolute top-10 left-0 w-64 bg-zinc-900 border border-white/15 rounded-2xl p-2 shadow-2xl z-50 animate-fade-in-up">
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase px-3 py-1">Select AI Model</div>
-                  {[
-                    'CortexCode AI (GPT-4o)',
-                    'CortexCode AI (Gemini Pro)',
-                    'CortexCode AI (Claude 3.5)',
-                    'CortexCode AI (DeepSeek R1)'
-                  ].map(model => (
-                    <button
-                      key={model}
-                      onClick={() => {
-                        setSelectedModel(model);
-                        setShowModelDropdown(false);
-                        toast.showSuccess('Model Switched', `Now using ${model}`);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
-                        selectedModel === model ? 'bg-purple-600/30 text-purple-300' : 'text-zinc-300 hover:bg-white/5'
-                      }`}
-                    >
-                      {model}
-                      {selectedModel === model && <Check size={14} />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Model Selector Dropdown (when in Chat tab) */}
+            {activeWorkspaceTab === 'chat' && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowModelDropdown(!showModelDropdown)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#171717] hover:bg-[#1f1f1f] border border-[#262626] rounded text-xs font-semibold text-neutral-300 hover:text-white transition-all"
+                >
+                  <Sparkles size={13} className="text-blue-400" />
+                  <span className="hidden md:inline">{selectedModel}</span>
+                  <ChevronDown size={13} className="text-neutral-400" />
+                </button>
+
+                {showModelDropdown && (
+                  <div className="absolute top-9 left-0 w-60 bg-[#121212] border border-[#262626] rounded-md p-1.5 shadow-2xl z-50 animate-fade-in-up">
+                    <div className="text-[10px] font-mono text-neutral-500 uppercase px-2.5 py-1">Select AI Model</div>
+                    {[
+                      'CortexCode AI (GPT-4o)',
+                      'CortexCode AI (Gemini Pro)',
+                      'CortexCode AI (Claude 3.5)',
+                      'CortexCode AI (DeepSeek R1)'
+                    ].map(model => (
+                      <button
+                        key={model}
+                        onClick={() => {
+                          setSelectedModel(model);
+                          setShowModelDropdown(false);
+                          toast.showSuccess('Model Switched', `Now using ${model}`);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded text-xs font-medium transition flex items-center justify-between ${
+                          selectedModel === model ? 'bg-[#1c1c1c] text-blue-400 border border-[#262626]' : 'text-neutral-300 hover:bg-[#181818]'
+                        }`}
+                      >
+                        {model}
+                        {selectedModel === model && <Check size={13} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
             {/* Token Counter */}
-            <div className="text-xs text-zinc-400 hidden sm:flex items-center gap-2">
-              <Activity size={14} className="text-emerald-400" />
+            <div className="text-xs text-neutral-400 hidden sm:flex items-center gap-2 font-mono">
+              <Activity size={13} className="text-emerald-400" />
               <span>Tokens: <strong className="text-white">{usageStats.tokensUsed.toLocaleString()}</strong> / 1M</span>
             </div>
           </div>
         </header>
 
-        {/* CHAT MESSAGES BODY */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-          {messages.length === 0 ? (
-            <EmptyState onSelectPrompt={handleSendMessage} mode={activeMode} />
-          ) : (
-            <div className="max-w-3xl mx-auto space-y-6 pb-6">
-              {messages.map(msg => (
-                <MessageItem
-                  key={msg.id}
-                  message={msg}
-                  userName={userProfile.name}
-                  onRegenerate={() => handleSendMessage(messages.filter(m => m.role === 'user').slice(-1)[0]?.content || 'Explain again')}
-                />
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-          )}
+        {/* WORKSPACE MODULE STRIP */}
+        <div className="flex overflow-x-auto px-4 py-1.5 bg-[#0d0d0d] border-b border-[#262626] gap-1 shrink-0 scrollbar-none justify-start md:justify-center">
+          {[
+            { id: 'chat' as WorkspaceTab, label: 'AI Chat', icon: MessageSquare },
+            { id: 'study' as WorkspaceTab, label: 'Study Mode', icon: BookOpen },
+            { id: 'goals' as WorkspaceTab, label: 'Goal Roadmap', icon: Target },
+            { id: 'agents' as WorkspaceTab, label: 'Multi-Agent', icon: Bot },
+            { id: 'security' as WorkspaceTab, label: 'Security', icon: ShieldCheck },
+            { id: 'assessments' as WorkspaceTab, label: 'Assessments', icon: Award },
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeWorkspaceTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveWorkspaceTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'bg-[#1a1a1a] text-white border border-[#262626]'
+                    : 'text-neutral-400 hover:text-white bg-transparent'
+                }`}
+              >
+                <Icon size={13} className={isActive ? 'text-blue-400' : 'text-neutral-500'} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* MODE SELECTOR */}
-        <ModeSelector activeMode={activeMode} onModeChange={handleModeChange} />
+        {/* DYNAMIC TAB CANVAS */}
+        {activeWorkspaceTab === 'study' && <StudyMode />}
 
-        {/* COMPOSER AT BOTTOM */}
-        <Composer
-          inputMessage={inputMessage}
-          setInputMessage={setInputMessage}
-          onSend={handleSendMessage}
-          isGenerating={isGenerating}
-          onStopGenerating={handleStopGenerating}
-          attachedFiles={attachedFiles}
-          setAttachedFiles={setAttachedFiles}
-          onDragStateChange={setIsDragging}
-        />
+        {activeWorkspaceTab === 'goals' && <GoalTracker />}
 
-        {/* DRAG DROP OVERLAY */}
-        <DragDropOverlay isActive={isDragging} />
+        {activeWorkspaceTab === 'agents' && <MultiAgentView />}
+
+        {activeWorkspaceTab === 'security' && <SecuritySettingsView />}
+
+        {activeWorkspaceTab === 'assessments' && <AssessmentHub />}
+
+        {activeWorkspaceTab === 'chat' && (
+          <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
+            {/* CHAT MESSAGES BODY */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+              {messages.length === 0 ? (
+                <EmptyState onSelectPrompt={handleSendMessage} mode={activeMode} />
+              ) : (
+                <div className="max-w-3xl mx-auto space-y-6 pb-6">
+                  {messages.map(msg => (
+                    <MessageItem
+                      key={msg.id}
+                      message={msg}
+                      userName={userProfile.name}
+                      onRegenerate={() => handleSendMessage(messages.filter(m => m.role === 'user').slice(-1)[0]?.content || 'Explain again')}
+                    />
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* MODE SELECTOR */}
+            <ModeSelector activeMode={activeMode} onModeChange={handleModeChange} />
+
+            {/* COMPOSER AT BOTTOM */}
+            <Composer
+              inputMessage={inputMessage}
+              setInputMessage={setInputMessage}
+              onSend={handleSendMessage}
+              isGenerating={isGenerating}
+              onStopGenerating={handleStopGenerating}
+              attachedFiles={attachedFiles}
+              setAttachedFiles={setAttachedFiles}
+              onDragStateChange={setIsDragging}
+            />
+
+            {/* DRAG DROP OVERLAY */}
+            <DragDropOverlay isActive={isDragging} />
+          </div>
+        )}
 
       </main>
 

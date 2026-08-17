@@ -2,13 +2,21 @@ import axios from 'axios';
 import { CORTEXCODE_SYSTEM_PROMPT } from '../aiService';
 
 const GEMINI_CANDIDATE_MODELS = [
+  'gemini-3.5-flash-lite',
   'gemini-3.6-flash',
-  'gemini-3.5-flash',
   'gemini-flash-latest',
-  'gemini-3.1-flash-lite'
+  'gemini-3.5-flash'
 ];
 
 export class GeminiProvider {
+  /**
+   * Safe initialization validator
+   */
+  static isConfigured(overrideApiKey?: string): boolean {
+    const key = overrideApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    return !!key && key !== 'dummy' && key.trim().length > 0;
+  }
+
   static async generateResponse(
     prompt: string,
     history: any[] = [],
@@ -16,27 +24,19 @@ export class GeminiProvider {
     overrideApiKey?: string,
     preferredModel?: string
   ): Promise<string> {
-    const defaultKey = () => {
-      try {
-        return Buffer.from('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=', 'base64').toString('utf-8');
-      } catch {
-        return '';
-      }
-    };
-
-    const apiKey = overrideApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || defaultKey();
+    const apiKey = (overrideApiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
     if (!apiKey || apiKey === 'dummy') {
-      throw new Error('GEMINI_API_KEY is not configured');
+      throw new Error('GEMINI_API_KEY is not configured on server');
     }
 
     const rawHistory = history
-      .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim() !== '')
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'model') && typeof m.content === 'string' && m.content.trim() !== '')
       .map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
+        role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
         parts: [{ text: m.content }]
       }));
 
-    // Ensure strict role alternation (no consecutive user or model items)
+    // Ensure strict role alternation (no consecutive duplicate roles)
     const formattedHistory: { role: string; parts: { text: string }[] }[] = [];
     for (const item of rawHistory) {
       if (formattedHistory.length === 0 || formattedHistory[formattedHistory.length - 1].role !== item.role) {
@@ -62,8 +62,7 @@ export class GeminiProvider {
     let lastError: any;
 
     for (const model of modelsToTry) {
-      // Build Google Generative Language API endpoint URL
-      const isOAuth = apiKey.startsWith('ya29.') || apiKey.startsWith('1//');
+      const isOAuth = apiKey.startsWith('ya29.');
       const url = isOAuth
         ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
         : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -81,7 +80,7 @@ export class GeminiProvider {
             contents: formattedHistory,
             generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
           },
-          { headers, timeout: 15000 }
+          { headers, timeout: 20000 }
         );
 
         const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
+import WorkspaceLoader from '@/components/workspace/WorkspaceLoader';
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, setUserProfile } = useAuth();
@@ -20,11 +21,7 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [user, setUserProfile]);
 
   if (!mounted) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-white font-mono text-xs uppercase tracking-widest">
-        Loading Workspace...
-      </div>
-    );
+    return <WorkspaceLoader message="Loading CortexCode Workspace..." />;
   }
 
   return <>{children}</>;

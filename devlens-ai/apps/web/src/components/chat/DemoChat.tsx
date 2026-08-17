@@ -5,7 +5,8 @@ import {
   Send, X, Sparkles, Bot, User, Loader2, Key, Eye, EyeOff,
   Copy, Check, Download, Mic, MicOff, Paperclip, Bug, Lightbulb,
   FileText, ShieldCheck, MessageSquare, Info, ChevronRight,
-  Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash
+  Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash,
+  CornerUpLeft, Brain, ChevronDown, ChevronUp, Quote, Zap
 } from 'lucide-react';
 import { getApiUrl } from '@/lib/apiConfig';
 import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
@@ -19,6 +20,10 @@ interface Message {
   mode?: string;
   attachments?: { name: string; size: number }[];
   isStreaming?: boolean;
+  replyTo?: { id: string; role: string; content: string; author: string };
+  thinkingDuration?: number;
+  isThinking?: boolean;
+  showThinking?: boolean;
 }
 
 interface Conversation {
@@ -136,30 +141,56 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [error, setError] = useState('');
   const [showApiKeyPanel, setShowApiKeyPanel] = useState(false);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
-  const [showRightPanel, setShowRightPanel] = useState(true);
-  
-  // Built-in Cerebras & Gemini API Keys
-  const CEREBRAS_BUILTIN_KEY = process.env.NEXT_PUBLIC_CEREBRAS_API_KEY || 'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe';
-  const getBuiltinKey = () => {
-    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    try {
-      return typeof window !== 'undefined' && typeof atob === 'function'
-        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=')
-        : '';
-    } catch { return ''; }
-  };
-  const BUILTIN_GEMINI_KEY = getBuiltinKey();
-  const [apiKey, setApiKey] = useState(CEREBRAS_BUILTIN_KEY);
+  const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [apiProvider, setApiProvider] = useState<'cerebras' | 'gemini' | 'openai'>('cerebras');
+  const [apiProvider, setApiProvider] = useState<'cerebras' | 'gemini' | 'openai'>('gemini');
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: number; text: string }[]>([]);
   const [isListening, setIsListening] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; role: string; content: string; author: string } | null>(null);
+  const [selectionTooltip, setSelectionTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [openThinkingMap, setOpenThinkingMap] = useState<Record<string, boolean>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleMouseUp = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      setSelectionTooltip(null);
+      return;
+    }
+    const text = selection.toString().trim();
+    if (text.length > 3) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setSelectionTooltip({
+        text,
+        x: rect.left + rect.width / 2,
+        y: rect.top - 12
+      });
+    } else {
+      setSelectionTooltip(null);
+    }
+  };
+
+  const handleAskCortexCodeFromSelection = (text: string) => {
+    setReplyingTo({
+      id: 'sel-' + Date.now(),
+      role: 'assistant',
+      content: text,
+      author: 'Selected Snippet'
+    });
+    setSelectionTooltip(null);
+    window.getSelection()?.removeAllRanges();
+    inputRef.current?.focus();
+  };
+
+  const toggleThinking = (msgId: string) => {
+    setOpenThinkingMap(prev => ({ ...prev, [msgId]: !prev[msgId] }));
+  };
 
   // Load conversations from LocalStorage on mount
   useEffect(() => {
@@ -317,14 +348,19 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     const modeToUse = modeOverride || activeMode;
 
     let fullPrompt = trimmed;
+    if (replyingTo) {
+      fullPrompt = `[Replying to ${replyingTo.author}: "${replyingTo.content.slice(0, 300)}"]\n\n${trimmed}`;
+    }
     if (attachedFiles.length > 0) {
       const fileContext = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.text}`).join('\n\n');
-      fullPrompt = `${fileContext}\n\nUser Question:\n${trimmed}`;
+      fullPrompt = `${fileContext}\n\nUser Question:\n${fullPrompt}`;
     }
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsgId = 'msg-' + Date.now();
     const assistantMsgId = 'msg-' + (Date.now() + 1);
+
+    const currentReplyTo = replyingTo;
 
     const userMessage: Message = {
       id: userMsgId,
@@ -332,7 +368,8 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       content: trimmed,
       timestamp,
       mode: modeToUse,
-      attachments: attachedFiles.map(f => ({ name: f.name, size: f.size }))
+      attachments: attachedFiles.map(f => ({ name: f.name, size: f.size })),
+      replyTo: currentReplyTo ? { id: currentReplyTo.id, role: currentReplyTo.role, content: currentReplyTo.content, author: currentReplyTo.author } : undefined
     };
 
     const assistantPlaceholder: Message = {
@@ -341,12 +378,16 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       content: '',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       mode: modeToUse,
-      isStreaming: true
+      isStreaming: true,
+      isThinking: true,
+      thinkingDuration: 0.1,
+      showThinking: true
     };
 
     const newMessages = [...messages, userMessage, assistantPlaceholder];
     setMessages(newMessages);
     setInput('');
+    setReplyingTo(null);
     setAttachedFiles([]);
     setLoading(true);
 
@@ -370,9 +411,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
     // Send history (role + content)
     const history = messages.map(m => ({ role: m.role, content: m.content }));
-    const userKeys: Record<string, string> = {
-      cerebras: CEREBRAS_BUILTIN_KEY
-    };
+    const userKeys: Record<string, string> = {};
     if (apiKey.trim()) {
       userKeys[apiProvider] = apiKey.trim();
     }
@@ -380,105 +419,36 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     abortControllerRef.current = new AbortController();
 
     try {
-      const systemInstructions: Record<string, string> = {
-        chat: 'You are CortexCode AI, a highly intelligent general-purpose assistant. Answer any question thoughtfully, conversationally and accurately.',
-        debug: 'You are CortexCode AI in Debug Mode. Identify the root cause of bugs, explain the issue clearly, and provide exact corrected code.',
-        explain: 'You are CortexCode AI in Explain Mode. Break down code or concepts step-by-step in simple, clear language with examples.',
-        notes: 'You are CortexCode AI in Notes Mode. Generate structured, high-yield study notes with headers, bullet points and examples.',
-        review: 'You are CortexCode AI in Code Review Mode. Audit the code for quality, security, performance, and edge cases. Give actionable feedback.'
-      };
-      const systemPrompt = systemInstructions[modeToUse] || systemInstructions.chat;
-
       let aiResponseStream: Response | null = null;
-      const geminiKeyToUse = userKeys['gemini'] || BUILTIN_GEMINI_KEY;
-      const cerebrasKeyToUse = userKeys['cerebras'] || apiKey || CEREBRAS_BUILTIN_KEY;
 
-      // ── 1. Attempt Gemini API stream directly from browser (Primary Verified Provider) ──
-      if (geminiKeyToUse && geminiKeyToUse.trim() !== '' && geminiKeyToUse.length > 10) {
-        const targetModel = selectedModel.startsWith('gemini') ? selectedModel : 'gemini-3.6-flash';
-        const isOAuth = geminiKeyToUse.startsWith('ya29.') || geminiKeyToUse.startsWith('1//');
-        const candidateModels = [targetModel, 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'].filter((v, i, a) => a.indexOf(v) === i);
-
-        const geminiContents = [
-          ...history.map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }]
-          })),
-          { role: 'user', parts: [{ text: fullPrompt }] }
-        ];
-
-        for (const mName of candidateModels) {
-          const fetchUrl = isOAuth
-            ? `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?alt=sse`
-            : `https://generativelanguage.googleapis.com/v1beta/models/${mName}:streamGenerateContent?key=${geminiKeyToUse}&alt=sse`;
-
-          const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (isOAuth) {
-            requestHeaders['Authorization'] = `Bearer ${geminiKeyToUse}`;
-          }
-
-          try {
-            const res = await fetch(fetchUrl, {
-              method: 'POST',
-              headers: requestHeaders,
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: geminiContents,
-                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-              }),
-              signal: abortControllerRef.current.signal
-            });
-            if (res.ok) {
-              aiResponseStream = res;
-              break;
-            }
-          } catch {
-            aiResponseStream = null;
-          }
-        }
+      // ── 1. Fetch live stream from CortexCode Backend ──
+      try {
+        aiResponseStream = await fetch(`${getApiUrl()}/api/demo/chat/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: fullPrompt,
+            history,
+            mode: modeToUse,
+            userKeys: Object.keys(userKeys).length > 0 ? userKeys : undefined
+          }),
+          signal: abortControllerRef.current.signal
+        });
+      } catch {
+        aiResponseStream = null;
       }
 
-      // ── 2. Attempt Cerebras API stream fallback ──
-      if (!aiResponseStream || !aiResponseStream.ok) {
-        if (selectedModel.startsWith('cerebras') || apiProvider === 'cerebras') {
-          const cerebrasModel = selectedModel.includes('120b') ? 'gpt-oss-120b' : 'gemma-4-31b';
-          try {
-            aiResponseStream = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${cerebrasKeyToUse}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                model: cerebrasModel,
-                messages: [
-                  { role: 'system', content: systemPrompt },
-                  ...history.map(m => ({ role: m.role, content: m.content })),
-                  { role: 'user', content: fullPrompt }
-                ],
-                temperature: 0.7,
-                max_tokens: 2048,
-                stream: true
-              }),
-              signal: abortControllerRef.current.signal
-            });
-          } catch {
-            aiResponseStream = null;
-          }
-        }
-      }
-
-      // ── 3. Backend API stream fallback ──
+      // ── 2. Fallback to /api/chat if stream endpoint unavailable ──
       if (!aiResponseStream || !aiResponseStream.ok) {
         try {
-          aiResponseStream = await fetch(`${getApiUrl()}/api/demo/chat/stream`, {
+          aiResponseStream = await fetch(`${getApiUrl()}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: fullPrompt,
               history,
               mode: modeToUse,
-              userKeys
+              userKeys: Object.keys(userKeys).length > 0 ? userKeys : undefined
             }),
             signal: abortControllerRef.current.signal
           });
@@ -488,6 +458,9 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       }
 
       let accumulatedContent = '';
+
+      const startTime = Date.now();
+      let thinkingFinished = false;
 
       if (aiResponseStream && aiResponseStream.ok && aiResponseStream.body) {
         const reader = aiResponseStream.body.getReader();
@@ -516,10 +489,16 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
                 if (token) {
                   accumulatedContent += token;
+                  const duration = Math.max(0.4, Number(((Date.now() - startTime) / 1000).toFixed(1)));
                   setMessages(prev =>
                     prev.map(m =>
                       m.id === assistantMsgId
-                        ? { ...m, content: accumulatedContent }
+                        ? {
+                            ...m,
+                            content: accumulatedContent,
+                            isThinking: false,
+                            thinkingDuration: m.thinkingDuration || duration
+                          }
                         : m
                     )
                   );
@@ -797,8 +776,27 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         {/* Center Stream Stream & Message Log */}
         <div className="flex-1 flex flex-col min-w-0 bg-black/40">
 
+          {/* Floating Text Selection Ask CortexCode Tooltip */}
+          {selectionTooltip && (
+            <div
+              style={{ top: `${selectionTooltip.y}px`, left: `${selectionTooltip.x}px`, transform: 'translate(-50%, -100%)' }}
+              className="fixed z-50 animate-fade-in-up pointer-events-auto"
+            >
+              <button
+                onClick={() => handleAskCortexCodeFromSelection(selectionTooltip.text)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-600 via-violet-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-bold shadow-2xl border border-white/20 hover:scale-105 transition-all cursor-pointer"
+              >
+                <Sparkles size={13} className="animate-spin text-purple-200" />
+                <span>Ask CortexCode</span>
+              </button>
+            </div>
+          )}
+
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
+          <div
+            onMouseUp={handleMouseUp}
+            className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar relative"
+          >
 
             {messages.length === 0 && !loading && (
               <div className="max-w-3xl mx-auto py-10 text-center">
@@ -866,6 +864,54 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                     <span className="text-[10px] text-zinc-500">{msg.timestamp}</span>
                   </div>
 
+                  {/* Quoted Reply Reference */}
+                  {msg.replyTo && (
+                    <div className="mb-2 p-2.5 rounded-xl bg-black/60 border-l-4 border-purple-500 text-xs text-purple-200/90 text-left font-sans">
+                      <div className="flex items-center gap-1 font-bold text-purple-300 text-[11px] mb-0.5">
+                        <Quote size={11} className="rotate-180 text-purple-400" />
+                        <span>Replying to {msg.replyTo.author}</span>
+                      </div>
+                      <div className="line-clamp-2 text-[11px] text-zinc-400">{msg.replyTo.content}</div>
+                    </div>
+                  )}
+
+                  {/* Thinking Accordion (ChatGPT style) */}
+                  {msg.role === 'assistant' && (msg.isThinking || msg.thinkingDuration) ? (
+                    <div className="mb-3 rounded-xl border border-purple-500/30 bg-purple-950/20 p-2.5 backdrop-blur-md transition-all">
+                      <button
+                        onClick={() => toggleThinking(msg.id)}
+                        className="flex items-center justify-between w-full text-xs font-semibold text-purple-300 hover:text-purple-200 transition"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Brain size={14} className={`text-purple-400 ${msg.isThinking ? 'animate-pulse' : ''}`} />
+                          <span>
+                            {msg.isThinking
+                              ? 'CortexCode is thinking...'
+                              : `Thought for ${(msg.thinkingDuration || 1.1).toFixed(1)}s`}
+                          </span>
+                        </div>
+                        {openThinkingMap[msg.id] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+
+                      {(openThinkingMap[msg.id] || msg.isThinking) && (
+                        <div className="mt-2.5 pt-2.5 border-t border-purple-500/20 text-[11px] font-mono text-purple-300/80 space-y-1.5 pl-2">
+                          <div className="flex items-center gap-2">
+                            <Zap size={11} className="text-purple-400 shrink-0" />
+                            <span>Analyzing prompt intent & active [{msg.mode || 'chat'}] mode parameters</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Sparkles size={11} className="text-blue-400 shrink-0" />
+                            <span>Retrieving ultra-fast streaming context via CortexEngine</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Bot size={11} className="text-emerald-400 shrink-0" />
+                            <span>Formulating structured response with code generation</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
                   <div
                     className={`inline-block p-4 rounded-2xl text-sm leading-relaxed text-left ${
                       msg.role === 'user'
@@ -891,6 +937,20 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                   {/* Actions Bar */}
                   <div className={`flex items-center gap-2 mt-1 text-[11px] text-zinc-500 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <button
+                      onClick={() => setReplyingTo({
+                        id: msg.id,
+                        role: msg.role,
+                        content: msg.content,
+                        author: msg.role === 'user' ? 'You' : 'CortexCode AI'
+                      })}
+                      className="hover:text-purple-300 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-white/5 transition"
+                      title="Reply to message"
+                    >
+                      <CornerUpLeft size={12} />
+                      <span>Reply</span>
+                    </button>
+                    <span className="text-zinc-700">•</span>
+                    <button
                       onClick={() => copyToClipboard(msg.content, msg.id)}
                       className="hover:text-zinc-300 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-white/5 transition"
                     >
@@ -915,6 +975,22 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
           {/* Composer */}
           <div className="p-4 bg-zinc-950/90 border-t border-white/10 shrink-0">
+            {replyingTo && (
+              <div className="max-w-4xl mx-auto flex items-center justify-between px-3.5 py-2 bg-purple-950/60 border border-purple-500/40 rounded-xl mb-2 text-xs text-purple-200 animate-fade-in-up">
+                <div className="flex items-center gap-2 truncate">
+                  <CornerUpLeft size={14} className="text-purple-400 shrink-0" />
+                  <span className="font-bold text-purple-300">Replying to {replyingTo.author}:</span>
+                  <span className="truncate text-purple-200/80">"{replyingTo.content.slice(0, 90)}"</span>
+                </div>
+                <button
+                  onClick={() => setReplyingTo(null)}
+                  className="p-1 hover:bg-white/10 rounded-lg text-purple-300 hover:text-white transition"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+
             <div className="max-w-4xl mx-auto relative bg-zinc-900/90 border border-white/15 rounded-2xl p-2.5 focus-within:border-purple-500/60 transition shadow-2xl">
               <textarea
                 ref={inputRef}

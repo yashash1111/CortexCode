@@ -9,6 +9,12 @@ import {
   resetPasswordSchema
 } from '../validators/auth.validator';
 import { hashPassword } from '../utils/password';
+import {
+  recordLoginSecurityEvent,
+  recordPasswordChangeSecurityEvent,
+  getUserSecurityEvents,
+  revokeUserSessions
+} from '../services/securityService';
 
 export class AuthController {
   private static parseErrorMessage(error: any): string {
@@ -66,10 +72,8 @@ export class AuthController {
       // Set secure HttpOnly cookies
       setAuthCookies(res, accessToken, refreshToken);
 
-      // Trigger Login Alert Email in background
-      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
-      const device = req.headers['user-agent'] || 'Browser Session';
-      EmailService.sendLoginAlertEmail(user.email, user.name, ip, device).catch(console.error);
+      // Trigger Login Alert Email and record security event
+      recordLoginSecurityEvent(req, user).catch(console.error);
 
       return res.status(200).json({
         success: true,
@@ -179,6 +183,70 @@ export class AuthController {
     } catch (error: any) {
       const message = AuthController.parseErrorMessage(error);
       return res.status(400).json({ success: false, error: { message } });
+    }
+  }
+
+  static async changePassword(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { message: 'Authentication required.' } });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword || newPassword.length < 6) {
+        return res.status(400).json({ success: false, error: { message: 'Please provide current password and a new password with at least 6 characters.' } });
+      }
+
+      const user = await AuthService.changePassword(userId, currentPassword, newPassword);
+
+      // Invalidate old sessions
+      await revokeUserSessions(userId);
+
+      // Record Security Event & Trigger Email Notification
+      recordPasswordChangeSecurityEvent(req, user).catch(console.error);
+
+      return res.status(200).json({
+        success: true,
+        message: '✓ Password changed successfully. A security notification has been sent to your registered email address.'
+      });
+    } catch (error: any) {
+      const message = AuthController.parseErrorMessage(error);
+      return res.status(400).json({ success: false, error: { message } });
+    }
+  }
+
+  static async getSecurityEvents(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { message: 'Authentication required.' } });
+      }
+
+      const events = await getUserSecurityEvents(userId);
+      return res.status(200).json({
+        success: true,
+        data: { events }
+      });
+    } catch {
+      return res.status(500).json({ success: false, error: { message: 'Failed to retrieve security events.' } });
+    }
+  }
+
+  static async revokeSessions(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: { message: 'Authentication required.' } });
+      }
+
+      await revokeUserSessions(userId);
+      return res.status(200).json({
+        success: true,
+        message: 'Signed out of all other sessions successfully.'
+      });
+    } catch {
+      return res.status(500).json({ success: false, error: { message: 'Failed to revoke sessions.' } });
     }
   }
 }

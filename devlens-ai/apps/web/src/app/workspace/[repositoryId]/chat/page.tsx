@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, use } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, Key, ExternalLink, X, Copy, Check, ChevronRight } from 'lucide-react';
 
+import { getApiUrl } from '@/lib/apiConfig';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -19,78 +21,47 @@ CORE RULES:
 6. Match the user's language and tone. Be friendly, intelligent, and helpful.
 7. Use conversation history for context on follow-up questions.`;
 
-// Detects if the credential is an OAuth Bearer token or a plain API key
-function isOAuthToken(key: string): boolean {
-  return key.startsWith('ya29.') || key.startsWith('1//');
-}
+async function callGeminiDirect(message: string, history: Message[], userApiKey?: string | null): Promise<string> {
+  const userKeys = userApiKey && userApiKey.trim() ? { gemini: userApiKey.trim() } : undefined;
 
-async function callGeminiDirect(message: string, history: Message[], apiKey: string): Promise<string> {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   try {
-    const res = await fetch(`${API_URL}/api/demo/chat`, {
+    const res = await fetch(`${getApiUrl()}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message,
         history,
-        userKeys: { gemini: apiKey },
+        userKeys,
         mode: 'chat'
       })
     });
+
     const data = await res.json();
     if (data.success && data.data?.content) {
       return data.data.content;
     }
-  } catch (err) {
-    console.warn('Backend API connection failed, falling back to direct API call:', err);
+  } catch {
+    // try demo fallback
   }
 
-  const formattedHistory = history
-    .filter(m => m.role === 'user' || m.role === 'assistant')
-    .map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
+  // Fallback to /api/demo/chat
+  const res = await fetch(`${getApiUrl()}/api/demo/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message,
+      history,
+      userKeys,
+      mode: 'chat'
+    })
+  });
 
-  const allContents = [...formattedHistory, { role: 'user', parts: [{ text: message }] }];
-  const useOAuth = isOAuthToken(apiKey);
-  const candidateModels = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
-
-  let lastErrMsg = 'Gemini API call failed.';
-
-  for (const modelName of candidateModels) {
-    const url = useOAuth
-      ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`
-      : `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (useOAuth) headers['Authorization'] = `Bearer ${apiKey}`;
-
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: allContents,
-          generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text;
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        lastErrMsg = errData?.error?.message || `Gemini API error: ${res.status}`;
-      }
-    } catch (err: any) {
-      lastErrMsg = err.message || 'Network request failed.';
-    }
+  const data = await res.json();
+  if (data.success && data.data?.content) {
+    return data.data.content;
   }
 
-  throw new Error(lastErrMsg);
+  throw new Error(data.error?.message || 'Cortex AI could not generate a response. Please try again.');
 }
 
 function SetupWizard({ onKeySet }: { onKeySet: (key: string) => void }) {
@@ -259,16 +230,7 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
   const [keyChecked, setKeyChecked] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const getBuiltinKey = () => {
-    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    try {
-      return typeof window !== 'undefined' && typeof atob === 'function'
-        ? atob('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWT09kS3VFVUQtdUNTT3VxY0dVTFE=')
-        : '';
-    } catch { return ''; }
-  };
-
-  // Check for stored key on mount, default to built-in key
+  // Check for custom stored key on mount if present
   useEffect(() => {
     try {
       const raw = localStorage.getItem('cortexcode_user_api_keys');
@@ -276,14 +238,10 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
         const parsed = JSON.parse(raw);
         if (parsed.gemini) {
           setApiKey(parsed.gemini);
-        } else {
-          setApiKey(getBuiltinKey());
         }
-      } else {
-        setApiKey(getBuiltinKey());
       }
     } catch {
-      setApiKey(getBuiltinKey());
+      // ignore
     }
     setShowSetup(false);
     setKeyChecked(true);
@@ -303,11 +261,6 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     const text = (overrideInput ?? input).trim();
     if (!text || isLoading) return;
 
-    if (!apiKey) {
-      setShowSetup(true);
-      return;
-    }
-
     const userMsg: Message = { role: 'user', content: text };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -316,8 +269,8 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     try {
       const reply = await callGeminiDirect(text, messages, apiKey);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ AI service temporarily unavailable. Please try again.' }]);
+    } catch (err: any) {
+      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${err.message || 'AI service temporarily unavailable. Please try again.'}` }]);
     } finally {
       setIsLoading(false);
     }

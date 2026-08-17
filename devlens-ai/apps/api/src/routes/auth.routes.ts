@@ -10,7 +10,8 @@ router.post('/login', authRateLimiter, AuthController.login);
 router.post('/logout', AuthController.logout);
 router.get('/me', authenticate, AuthController.me);
 router.post('/refresh', AuthController.refresh);
-router.post('/forgot-password', passwordResetRateLimiter, AuthController.forgotPassword);
-router.post('/reset-password', passwordResetRateLimiter, AuthController.resetPassword);
+router.post('/change-password', authenticate, passwordResetRateLimiter, AuthController.changePassword);
+router.get('/security-events', authenticate, AuthController.getSecurityEvents);
+router.post('/revoke-sessions', authenticate, AuthController.revokeSessions);
 
 export default router;

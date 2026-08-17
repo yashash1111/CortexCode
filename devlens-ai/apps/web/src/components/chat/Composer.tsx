@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Square, Paperclip, FolderOpen } from 'lucide-react';
 import { useToast } from '@/providers/ToastProvider';
 import FileAttachments from './FileAttachments';
@@ -175,17 +175,25 @@ export default function Composer({
     }
   };
 
+  const [isDragOver, setIsDragOver] = useState(false);
+
   // Drag and Drop Handlers
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current++;
-    if (dragCounterRef.current === 1) onDragStateChange?.(true);
+    if (dragCounterRef.current === 1) {
+      setIsDragOver(true);
+      onDragStateChange?.(true);
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current--;
-    if (dragCounterRef.current === 0) onDragStateChange?.(false);
+    if (dragCounterRef.current === 0) {
+      setIsDragOver(false);
+      onDragStateChange?.(false);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -195,6 +203,7 @@ export default function Composer({
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current = 0;
+    setIsDragOver(false);
     onDragStateChange?.(false);
 
     const files = e.dataTransfer.files;
@@ -236,13 +245,17 @@ export default function Composer({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* File Attachment Preview Strip */}
-      <FileAttachments files={attachedFiles} onRemove={handleRemoveFile} />
+      <div
+        className={`relative bg-[#121212] border rounded-lg transition-all ${
+          isDragOver
+            ? 'border-blue-500 bg-[#171717]'
+            : 'border-[#262626] focus-within:border-neutral-700'
+        }`}
+      >
+        {/* File Attachments Strip */}
+        <FileAttachments files={attachedFiles} onRemove={handleRemoveFile} />
 
-      {/* Main Composer Box */}
-      <div className="relative bg-zinc-900/90 border border-white/20 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] backdrop-blur-2xl focus-within:border-purple-500/60 transition-all">
-
-        {/* Textarea */}
+        {/* Textarea Input */}
         <textarea
           ref={textareaRef}
           value={inputMessage}
@@ -254,11 +267,11 @@ export default function Composer({
               ? `Ask about ${attachedFiles.length === 1 ? attachedFiles[0].name : `${attachedFiles.length} files`}...`
               : 'Ask CortexCode anything... (Enter to send, Shift+Enter for new line)'
           }
-          className="w-full px-5 py-3.5 bg-transparent text-sm text-white placeholder-zinc-500 focus:outline-none resize-none overflow-y-auto max-h-48 font-sans"
+          className="w-full px-4 py-3 bg-transparent text-sm font-medium text-white placeholder-neutral-500 focus:outline-none resize-none overflow-y-auto max-h-48 font-sans"
         />
 
         {/* Bottom Bar: Left actions + Right send */}
-        <div className="flex items-center justify-between px-3 pb-3">
+        <div className="flex items-center justify-between px-3 pb-2.5">
           {/* Left: Attachment Actions */}
           <div className="flex items-center gap-1">
             {/* File Attachment */}
@@ -266,9 +279,9 @@ export default function Composer({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               title="Attach files"
-              className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1c1c1c] rounded transition-colors"
             >
-              <Paperclip size={17} />
+              <Paperclip size={15} />
             </button>
 
             {/* Folder Upload */}
@@ -276,9 +289,9 @@ export default function Composer({
               type="button"
               onClick={() => folderInputRef.current?.click()}
               title="Upload a folder / project"
-              className="p-2 text-zinc-400 hover:text-amber-300 hover:bg-amber-950/20 rounded-xl transition-colors"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1c1c1c] rounded transition-colors"
             >
-              <FolderOpen size={17} />
+              <FolderOpen size={15} />
             </button>
 
             {/* Voice Input */}
@@ -288,7 +301,7 @@ export default function Composer({
           {/* Right: Stop / Send */}
           <div className="flex items-center gap-2">
             {attachedFiles.length > 0 && (
-              <span className="text-[10px] text-zinc-500 font-medium mr-1">
+              <span className="text-[10px] font-mono text-neutral-400 mr-1">
                 {attachedFiles.length} file{attachedFiles.length > 1 ? 's' : ''}
               </span>
             )}
@@ -297,10 +310,10 @@ export default function Composer({
               <button
                 type="button"
                 onClick={onStopGenerating}
-                className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md"
+                className="flex items-center gap-1 px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-semibold transition-colors"
                 title="Stop generating"
               >
-                <Square size={13} className="fill-white" />
+                <Square size={11} className="fill-white" />
                 Stop
               </button>
             ) : (
@@ -308,10 +321,10 @@ export default function Composer({
                 type="button"
                 onClick={handleSend}
                 disabled={!canSend}
-                className="p-2.5 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 hover:from-purple-500 hover:via-pink-500 hover:to-blue-500 text-white rounded-2xl disabled:opacity-30 transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] flex items-center justify-center transform active:scale-95"
+                className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-30 transition-colors flex items-center justify-center"
                 title="Send message"
               >
-                <Send size={17} />
+                <Send size={15} />
               </button>
             )}
           </div>
@@ -319,7 +332,7 @@ export default function Composer({
       </div>
 
       {/* Hint Text */}
-      <p className="text-center text-[10px] text-zinc-600 mt-2">
+      <p className="text-center text-[10px] font-mono text-neutral-500 mt-2">
         Enter to send · Shift+Enter for new line · Drag files to attach
       </p>
 

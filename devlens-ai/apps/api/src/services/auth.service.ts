@@ -160,4 +160,42 @@ export class AuthService {
       });
     } catch { /* ignore */ }
   }
+
+  static async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    let user: any = null;
+    try {
+      user = await prisma.user.findUnique({ where: { id: userId } });
+    } catch {
+      user = inMemoryUsers.get(userId);
+    }
+
+    if (!user) {
+      user = inMemoryUsers.get(userId);
+    }
+
+    if (!user || !user.passwordHash) {
+      throw new Error('User account not found.');
+    }
+
+    const isValidCurrent = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isValidCurrent) {
+      throw new Error('Current password is incorrect.');
+    }
+
+    const newHashedPassword = await hashPassword(newPassword);
+
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash: newHashedPassword }
+      });
+    } catch {
+      user.passwordHash = newHashedPassword;
+      inMemoryUsers.set(userId, user);
+      if (user.email) inMemoryUsers.set(user.email, user);
+    }
+
+    const { passwordHash, ...safeUser } = user;
+    return safeUser;
+  }
 }

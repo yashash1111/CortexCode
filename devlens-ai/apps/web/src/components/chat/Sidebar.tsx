@@ -104,21 +104,21 @@ export default function Sidebar({
           <div className="flex items-center justify-between mb-4">
             <Link
               href="/workspace"
-              className="flex items-center gap-3 group px-1 py-1"
+              className="flex items-center gap-2.5 group px-1 py-1"
             >
               <img
                 src="/logo.jpg"
                 alt="CortexCode Logo"
-                className="w-10 h-10 rounded-xl border border-white/20 shadow-[0_0_20px_rgba(168,85,247,0.4)] group-hover:scale-105 transition-transform object-cover shrink-0"
+                className="w-8 h-8 rounded-md border border-[#262626] object-cover shrink-0"
               />
               {!isCollapsed && (
-                <div className="min-w-0">
-                  <div className="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-300 via-purple-200 to-pink-300 truncate">
+                <div className="min-w-0 flex items-center gap-2">
+                  <div className="text-sm font-bold text-white tracking-tight truncate">
                     CortexCode
                   </div>
-                  <div className="text-[9px] font-semibold text-purple-400 tracking-wider uppercase truncate">
-                    Think. Code. Build. Grow.
-                  </div>
+                  <span className="text-[9px] font-mono text-neutral-400 px-1 py-0.2 bg-[#1c1c1c] border border-[#262626] rounded">
+                    PRO
+                  </span>
                 </div>
               )}
             </Link>
@@ -126,17 +126,17 @@ export default function Sidebar({
             {/* Desktop Collapse Toggle */}
             <button
               onClick={onToggleCollapse}
-              className="hidden md:flex p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors shrink-0"
+              className="hidden md:flex p-1 text-neutral-400 hover:text-white hover:bg-[#1a1a1a] rounded transition-colors shrink-0"
             >
-              {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
 
             {/* Mobile Close Button */}
             <button
               onClick={onMobileClose}
-              className="md:hidden p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+              className="md:hidden p-1 text-neutral-400 hover:text-white hover:bg-[#1a1a1a] rounded transition-colors"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
@@ -146,11 +146,11 @@ export default function Sidebar({
               onNewChat();
               if (isMobileOpen) onMobileClose();
             }}
-            className={`w-full py-3.5 bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 hover:from-purple-500 hover:via-pink-500 hover:to-blue-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(168,85,247,0.4)] transform hover:scale-[1.02] mb-4 shrink-0 ${
-              isCollapsed ? 'px-0' : 'px-4'
+            className={`w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-md flex items-center justify-center gap-2 transition-colors mb-3 shrink-0 ${
+              isCollapsed ? 'px-0' : 'px-3'
             }`}
           >
-            <Plus size={18} className="shrink-0" />
+            <Plus size={15} />
             {!isCollapsed && <span>New Chat</span>}
           </button>
 

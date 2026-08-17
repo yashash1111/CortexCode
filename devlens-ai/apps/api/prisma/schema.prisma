@@ -30,7 +30,9 @@ model User {
   teamMembers    TeamMember[]
   comments       Comment[]
   notifications  Notification[]
-  auditLogs      AuditLog[]
+  auditLogs          AuditLog[]
+  securityEvents     SecurityEvent[]
+  assessmentSessions AssessmentSession[]
 }
 
 model RefreshToken {
@@ -424,4 +426,210 @@ model Memory {
 
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   @@unique([repositoryId, key])
+}
+
+model SecurityEvent {
+  id              String   @id @default(uuid())
+  userId          String
+  type            String   // LOGIN, PASSWORD_CHANGED, PASSWORD_RESET, LOGOUT, FAILED_LOGIN, NEW_DEVICE
+  ipAddress       String?
+  userAgent       String?  @db.Text
+  device          String?
+  browser         String?
+  operatingSystem String?
+  location        String?  @default("Unavailable")
+  success         Boolean  @default(true)
+  timestamp       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Assessment {
+  id                   String   @id @default(uuid())
+  title                String
+  description          String?  @db.Text
+  durationMinutes      Int      @default(60)
+  difficulty           String   @default("Intermediate")
+  status               String   @default("PUBLISHED") // DRAFT, PUBLISHED, ACTIVE, COMPLETED, ARCHIVED
+  subjects             Json
+  questionTypes        Json
+  sections             Json?
+  scoringPolicy        Json?
+  canNavigateBackwards Boolean  @default(true)
+  totalPoints          Int      @default(100)
+  proctorConfig        Json?
+  createdBy            String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  questions AssessmentQuestion[]
+  sessions  AssessmentSession[]
+}
+
+model AssessmentQuestion {
+  id                 String   @id @default(uuid())
+  assessmentId       String
+  sectionId          String?
+  type               String   // MCQ, CODING, SUBJECTIVE, COMPREHENSION
+  prompt             String   @db.Text
+  subject            String?
+  topic              String?
+  difficulty         String   @default("Intermediate")
+  options            Json?
+  correctAnswer      String?
+  multipleCorrect    Boolean  @default(false)
+  explanation        String?  @db.Text
+  starterCode        Json?
+  constraints        Json?
+  examples           Json?
+  supportedLanguages Json?
+  testCases          Json?
+  hiddenTests        Json?
+  timeLimit          Int      @default(2000)
+  memoryLimit        Int      @default(256)
+  expectedConcepts   Json?
+  rubric             String?  @db.Text
+  passage            String?  @db.Text
+  points             Int      @default(10)
+  order              Int      @default(0)
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    AssessmentAnswer[]
+
+  @@index([assessmentId])
+}
+
+model QuestionBankItem {
+  id                 String   @id @default(uuid())
+  type               String   // MCQ, CODING, SUBJECTIVE, COMPREHENSION
+  prompt             String   @db.Text
+  subject            String
+  topic              String?
+  difficulty         String   @default("Intermediate")
+  points             Int      @default(10)
+  options            Json?
+  correctAnswer      String?
+  multipleCorrect    Boolean  @default(false)
+  explanation        String?  @db.Text
+  starterCode        Json?
+  constraints        Json?
+  examples           Json?
+  supportedLanguages Json?
+  testCases          Json?
+  hiddenTests        Json?
+  timeLimit          Int      @default(2000)
+  memoryLimit        Int      @default(256)
+  expectedConcepts   Json?
+  rubric             String?  @db.Text
+  passage            String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([subject])
+  @@index([difficulty])
+  @@index([type])
+}
+
+model AssessmentSession {
+  id                   String    @id @default(uuid())
+  userId               String
+  assessmentId         String
+  status               String    @default("ACTIVE") // ACTIVE, SUBMITTED, EXPIRED, TERMINATED
+  startedAt            DateTime?
+  expiresAt            DateTime?
+  submittedAt          DateTime?
+  currentQuestionIndex Int       @default(0)
+  currentQuestionId    String?
+  currentSectionId     String?
+  fullscreenExitCount  Int       @default(0)
+  tabSwitchCount       Int       @default(0)
+  proctoringStatus     String    @default("ACTIVE")
+  terminationReason    String?
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    AssessmentAnswer[]
+  events     ProctorEvent[]
+  result     AssessmentResult?
+
+  @@index([userId])
+  @@index([assessmentId])
+}
+
+model AssessmentAnswer {
+  id                String   @id @default(uuid())
+  sessionId         String
+  questionId        String
+  selectedOption    String?
+  selectedOptions   Json?
+  subjectiveAnswer  String?  @db.Text
+  codeAnswer        String?  @db.Text
+  codeLanguage      String?
+  pointsAwarded     Float?
+  aiFeedback        Json?
+  timeSpentSeconds  Int      @default(0)
+  isMarkedForReview Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+
+  session  AssessmentSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+}
+
+model ProctorEvent {
+  id           String   @id @default(uuid())
+  sessionId    String
+  userId       String
+  assessmentId String
+  type         String
+  severity     String   @default("INFO")
+  metadata     Json?
+  timestamp    DateTime @default(now())
+
+  session AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model AssessmentResult {
+  id                        String    @id @default(uuid())
+  sessionId                 String    @unique
+  userId                    String
+  assessmentId              String
+  assessmentTitle           String?
+  overallScore              Float
+  totalMarks                Float     @default(100)
+  obtainedMarks             Float     @default(0)
+  mcqScore                  Float
+  codingScore               Float
+  subjectiveScore           Float
+  comprehensionScore        Float
+  sectionScores             Json?
+  questionScores            Json?
+  subjectBreakdown          Json?
+  codingResults             Json?
+  subjectiveEvaluations     Json?
+  comprehensionEvaluations  Json?
+  topicAnalysis             Json?
+  knowledgeGaps             Json?
+  recommendations           Json?
+  learningPath              Json?
+  integritySummary          Json?
+  strengths                 Json
+  weaknesses                Json
+  aiReport                  String    @db.Text
+  proctoringSummary         Json?
+  auditTrail                Json?
+  humanReviews              Json?
+  evaluationStatus          String    @default("COMPLETED") // NOT_STARTED, PROCESSING, PARTIALLY_COMPLETED, COMPLETED, FAILED
+  evaluatorVersion          String    @default("v3.0.0")
+  evaluatedAt               DateTime? @default(now())
+  status                    String    @default("COMPLETED") // PROCESSING, COMPLETED, FAILED
+  submittedAt               DateTime  @default(now())
+  createdAt                 DateTime  @default(now())
+
+  session AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }

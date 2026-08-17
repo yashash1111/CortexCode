@@ -1,14 +1,18 @@
 export const getApiUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || (typeof process !== 'undefined' && process.env ? process.env.VITE_API_URL : undefined);
+  if (envUrl) {
+    return envUrl.replace(/\/$/, '');
   }
   
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    if (hostname.includes('onrender.com') || hostname !== 'localhost') {
+    // If on render or remote deployment
+    if (hostname.includes('onrender.com')) {
       return 'https://cortexcode-api.onrender.com';
     }
+    // If local dev (localhost, 127.0.0.1, local IP)
+    return `http://${hostname}:3001`;
   }
   
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+  return 'http://localhost:3001';
 };
