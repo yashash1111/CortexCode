@@ -37,10 +37,33 @@ export async function generateAiResponseServer(
   mode: string = 'chat',
   userKeys?: UserApiKeys
 ): Promise<string> {
-  const geminiKey = userKeys?.gemini || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const cerebrasKey = userKeys?.cerebras || process.env.CEREBRAS_API_KEY;
-  const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
-  const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
+  const geminiKey =
+    userKeys?.gemini ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GEMINIAPIKEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLEAPIKEY ||
+    process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+    process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
+  const cerebrasKey =
+    userKeys?.cerebras ||
+    process.env.CEREBRAS_API_KEY ||
+    process.env.CEREBRASAPIKEY ||
+    process.env.NEXT_PUBLIC_CEREBRAS_API_KEY ||
+    'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe';
+
+  const openaiKey =
+    userKeys?.openai ||
+    process.env.OPENAI_API_KEY ||
+    process.env.OPENAIAPIKEY ||
+    process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+
+  const anthropicKey =
+    userKeys?.anthropic ||
+    process.env.ANTHROPIC_API_KEY ||
+    process.env.ANTHROPICAPIKEY ||
+    process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
 
   const systemPrompt = SYSTEM_INSTRUCTIONS[mode] || SYSTEM_INSTRUCTIONS.chat;
   let lastProviderError = '';
@@ -229,6 +252,6 @@ export async function generateAiResponseServer(
     }
   }
 
-  // If no API key was provided or all configured keys failed, return clear error (NO fake/mock code)
+  // If all providers failed, return clear message with provider error
   return getAPIErrorMessage(lastProviderError);
 }

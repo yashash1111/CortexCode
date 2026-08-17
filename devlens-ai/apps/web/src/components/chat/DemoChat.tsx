@@ -151,6 +151,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [replyingTo, setReplyingTo] = useState<{ id: string; role: string; content: string; author: string } | null>(null);
   const [selectionTooltip, setSelectionTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const [openThinkingMap, setOpenThinkingMap] = useState<Record<string, boolean>>({});
+  const [savedApiKeys, setSavedApiKeys] = useState<{ gemini?: string; cerebras?: string; openai?: string }>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -193,7 +194,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     setOpenThinkingMap(prev => ({ ...prev, [msgId]: !prev[msgId] }));
   };
 
-  // Load conversations from LocalStorage on mount
+  // Load conversations and API keys from LocalStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem('cortexcode_demo_conversations');
@@ -204,6 +205,13 @@ export default function DemoChat({ onClose }: DemoChatProps) {
           setActiveConvId(parsed[0].id);
           setMessages(parsed[0].messages);
         }
+      }
+
+      const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
+      if (rawKeys) {
+        const parsedKeys = JSON.parse(rawKeys);
+        setSavedApiKeys(parsedKeys);
+        if (parsedKeys.gemini) setApiKey(parsedKeys.gemini);
       }
     } catch {
       // Ignore parse errors
@@ -413,9 +421,10 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     // Send history (role + content)
     const history = messages.map(m => ({ role: m.role, content: m.content }));
     const userKeys: Record<string, string> = {};
-    if (apiKey.trim()) {
-      userKeys[apiProvider] = apiKey.trim();
-    }
+    if (savedApiKeys.gemini?.trim()) userKeys.gemini = savedApiKeys.gemini.trim();
+    if (savedApiKeys.cerebras?.trim()) userKeys.cerebras = savedApiKeys.cerebras.trim();
+    if (savedApiKeys.openai?.trim()) userKeys.openai = savedApiKeys.openai.trim();
+    if (apiKey.trim()) userKeys[apiProvider] = apiKey.trim();
 
     abortControllerRef.current = new AbortController();
 
@@ -671,6 +680,19 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
         {/* Right Header Controls */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowApiKeyPanel(true)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition ${
+              (savedApiKeys.gemini || savedApiKeys.cerebras || apiKey)
+                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30'
+                : 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30 animate-pulse'
+            }`}
+            title="Configure AI API Keys"
+          >
+            <Key size={13} />
+            <span className="hidden sm:inline">{(savedApiKeys.gemini || savedApiKeys.cerebras || apiKey) ? 'API Key Active' : 'Set API Key'}</span>
+          </button>
+
           <button
             onClick={exportChatAsMarkdown}
             disabled={messages.length === 0}
@@ -1123,6 +1145,72 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         )}
 
       </div>
+
+      {/* API Key Modal */}
+      {showApiKeyPanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in-up">
+          <div className="w-full max-w-md bg-zinc-900 border border-white/20 rounded-2xl p-6 shadow-2xl relative">
+            <button
+              onClick={() => setShowApiKeyPanel(false)}
+              className="absolute top-4 right-4 p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 transition"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-white flex items-center gap-2 mb-2">
+              <Key size={18} className="text-purple-400" />
+              Configure AI API Key
+            </h3>
+            <p className="text-xs text-zinc-400 mb-4">
+              Enter your Gemini or Cerebras API key below. Keys are stored locally in your browser and used for live AI responses.
+            </p>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1 flex justify-between">
+                  <span>Google Gemini API Key</span>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-purple-400 hover:underline text-[11px]"
+                  >
+                    Get Free Key →
+                  </a>
+                </label>
+                <input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  value={savedApiKeys.gemini || ''}
+                  onChange={e => setSavedApiKeys({ ...savedApiKeys, gemini: e.target.value })}
+                  className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-xl text-xs font-mono text-white outline-none focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Cerebras API Key
+                </label>
+                <input
+                  type="password"
+                  placeholder="csk-..."
+                  value={savedApiKeys.cerebras || ''}
+                  onChange={e => setSavedApiKeys({ ...savedApiKeys, cerebras: e.target.value })}
+                  className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-xl text-xs font-mono text-white outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.setItem('cortexcode_user_api_keys', JSON.stringify(savedApiKeys));
+                } catch { /* ignore */ }
+                setShowApiKeyPanel(false);
+              }}
+              className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition"
+            >
+              Save API Keys
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Hidden File Input */}
       <input
