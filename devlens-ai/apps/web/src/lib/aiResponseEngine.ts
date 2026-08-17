@@ -12,6 +12,4 @@ export function getAPIErrorMessage(errorDetail?: string): string {
   return `⚠️ **API Key Required**\n\nTo interact with CortexCode AI, a valid API key is required.\n\n### How to configure:\n1. Open **Settings > API Keys** (gear icon in the sidebar).\n2. Enter your **Google Gemini API Key** (get a free key at [Google AI Studio](https://aistudio.google.com/app/apikey)) or **Cerebras API Key**.\n3. Click **Save Changes**.\n\nIf you are running on Render, you can also add \`GEMINI_API_KEY\` or \`CEREBRAS_API_KEY\` in your **Render Dashboard > Environment** variables.`;
 }
 
-export function generateLocalAIResponse(userPrompt: string = '', mode: string = 'chat'): string {
-  return getAPIErrorMessage();
-}
+

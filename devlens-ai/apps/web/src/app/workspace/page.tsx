@@ -19,7 +19,7 @@ import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getApiUrl } from '@/lib/apiConfig';
-import { getAPIErrorMessage, generateLocalAIResponse } from '@/lib/aiResponseEngine';
+import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
 import type { AttachedFile } from '@/components/chat/types';
 
 import CommandPalette, { WorkspaceTab } from '@/components/workspace/CommandPalette';
