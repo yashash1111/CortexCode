@@ -399,13 +399,13 @@ function WorkspaceContent() {
       { timeout: 60000, withCredentials: true }
     ).then((res) => {
       const aiText = res.data?.data?.aiResponse?.content;
-      if (aiText && !aiText.includes("couldn't generate a response")) {
+      if (aiText) {
         startTypewriterStream(aiText, tempAiMsgId);
       } else {
-        const fallbackResponse = generateLocalAIResponse(userMsg.content);
-        startTypewriterStream(fallbackResponse, tempAiMsgId);
+        const errorMsg = res.data?.error?.message || getAPIErrorMessage();
+        startTypewriterStream(errorMsg, tempAiMsgId);
       }
-    }).catch((err) => {
+    }).catch(() => {
       // Check for unified /api/chat fallback
       axios.post(
         `${getApiUrl()}/api/chat`,
@@ -421,16 +421,15 @@ function WorkspaceContent() {
         if (text) {
           startTypewriterStream(text, tempAiMsgId);
         } else {
-          const fallbackResponse = generateLocalAIResponse(userMsg.content);
-          startTypewriterStream(fallbackResponse, tempAiMsgId);
+          const errorMsg = chatRes.data?.error?.message || getAPIErrorMessage();
+          startTypewriterStream(errorMsg, tempAiMsgId);
         }
       }).catch((chatErr) => {
         const errorMsg = chatErr?.response?.data?.error?.message ||
           (chatErr?.code === 'ECONNABORTED'
             ? 'Request timed out. Please try again.'
-            : 'Unable to connect to CortexCode server. Please verify your connection.');
-        const fallbackResponse = generateLocalAIResponse(userMsg.content) || `⚠️ ${errorMsg}`;
-        startTypewriterStream(fallbackResponse, tempAiMsgId);
+            : getAPIErrorMessage());
+        startTypewriterStream(errorMsg, tempAiMsgId);
       });
     });
   };

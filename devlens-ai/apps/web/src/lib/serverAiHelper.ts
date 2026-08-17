@@ -1,4 +1,4 @@
-import { generateLocalAIResponse } from './aiResponseEngine';
+import { getAPIErrorMessage } from './aiResponseEngine';
 
 export interface UserApiKeys {
   cerebras?: string;
@@ -23,6 +23,14 @@ const CEREBRAS_MODELS = [
   'llama3.1-70b'
 ];
 
+const SYSTEM_INSTRUCTIONS: Record<string, string> = {
+  chat: 'You are CortexCode AI, an expert software developer and technical assistant. Provide clear, direct, and helpful solutions.',
+  debug: 'You are CortexCode AI in Debug Mode. Analyze the provided code or error stack trace, diagnose the root cause, and provide the exact fixed code.',
+  explain: 'You are CortexCode AI in Explain Mode. Provide clear, step-by-step conceptual walkthroughs with code examples.',
+  notes: 'You are CortexCode AI in Notes Generator Mode. Provide concise, structured, high-yield reference notes and cheat sheets.',
+  review: 'You are CortexCode AI in Code Review Mode. Conduct an in-depth security, quality, performance, and type-safety audit of the provided code.'
+};
+
 export async function generateAiResponseServer(
   prompt: string,
   history: any[] = [],
@@ -32,11 +40,15 @@ export async function generateAiResponseServer(
   const geminiKey = userKeys?.gemini || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const cerebrasKey = userKeys?.cerebras || process.env.CEREBRAS_API_KEY;
   const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
+  const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
 
-  // 1. Try Gemini if key is provided
+  const systemPrompt = SYSTEM_INSTRUCTIONS[mode] || SYSTEM_INSTRUCTIONS.chat;
+  let lastProviderError = '';
+
+  // 1. Google Gemini Live API
   if (geminiKey && geminiKey.trim() !== '' && geminiKey !== 'dummy') {
     const rawHistory = history
-      .filter(m => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'model') && typeof m.content === 'string')
+      .filter(m => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'model') && typeof m.content === 'string' && m.content.trim() !== '')
       .map(m => ({
         role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
         parts: [{ text: m.content }]
@@ -71,6 +83,7 @@ export async function generateAiResponseServer(
           method: 'POST',
           headers,
           body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: formattedHistory,
             generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
           })
@@ -83,22 +96,21 @@ export async function generateAiResponseServer(
             return text.trim();
           }
         } else {
-          const errText = await res.text();
-          console.warn(`[Gemini Server] Model ${model} error (${res.status}):`, errText);
+          const errData = await res.json().catch(() => ({}));
+          lastProviderError = errData?.error?.message || `Gemini HTTP status ${res.status}`;
+          console.warn(`[Gemini Server] Model ${model} returned error: ${lastProviderError}`);
         }
       } catch (err: any) {
-        console.warn(`[Gemini Server] Fetch failed for ${model}:`, err.message);
+        lastProviderError = err.message || 'Gemini network error';
+        console.warn(`[Gemini Server] Model ${model} exception: ${lastProviderError}`);
       }
     }
   }
 
-  // 2. Try Cerebras if key is provided
+  // 2. Cerebras Live API (Ultra-Fast Inference)
   if (cerebrasKey && cerebrasKey.trim() !== '' && cerebrasKey !== 'dummy') {
     const messages = [
-      {
-        role: 'system',
-        content: 'You are CortexCode AI, an expert AI software engineer and developer assistant.'
-      },
+      { role: 'system', content: systemPrompt },
       ...history
         .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
         .map(m => ({ role: m.role, content: m.content })),
@@ -127,18 +139,23 @@ export async function generateAiResponseServer(
           if (content && content.trim()) {
             return content.trim();
           }
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          lastProviderError = errData?.error?.message || `Cerebras HTTP status ${res.status}`;
+          console.warn(`[Cerebras Server] Model ${model} error: ${lastProviderError}`);
         }
       } catch (err: any) {
-        console.warn(`[Cerebras Server] Error for ${model}:`, err.message);
+        lastProviderError = err.message || 'Cerebras network error';
+        console.warn(`[Cerebras Server] Exception: ${lastProviderError}`);
       }
     }
   }
 
-  // 3. Try OpenAI if key is provided
+  // 3. OpenAI Live API
   if (openaiKey && openaiKey.trim() !== '' && openaiKey.startsWith('sk-')) {
     try {
       const messages = [
-        { role: 'system', content: 'You are CortexCode AI, an expert software developer assistant.' },
+        { role: 'system', content: systemPrompt },
         ...history
           .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
           .map(m => ({ role: m.role, content: m.content })),
@@ -154,7 +171,8 @@ export async function generateAiResponseServer(
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages,
-          temperature: 0.7
+          temperature: 0.7,
+          max_tokens: 4096
         })
       });
 
@@ -164,12 +182,53 @@ export async function generateAiResponseServer(
         if (content && content.trim()) {
           return content.trim();
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastProviderError = errData?.error?.message || `OpenAI HTTP status ${res.status}`;
       }
     } catch (err: any) {
-      console.warn('[OpenAI Server] Error:', err.message);
+      lastProviderError = err.message || 'OpenAI network error';
     }
   }
 
-  // 4. Fallback to Local AI Engine
-  return generateLocalAIResponse(prompt, mode);
+  // 4. Anthropic Claude Live API
+  if (anthropicKey && anthropicKey.trim() !== '' && anthropicKey.startsWith('sk-ant-')) {
+    try {
+      const messages = history
+        .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+        .map(m => ({ role: m.role, content: m.content }));
+      messages.push({ role: 'user', content: prompt });
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey.trim(),
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          system: systemPrompt,
+          messages,
+          max_tokens: 4096
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.content?.[0]?.text;
+        if (text && text.trim()) {
+          return text.trim();
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastProviderError = errData?.error?.message || `Anthropic HTTP status ${res.status}`;
+      }
+    } catch (err: any) {
+      lastProviderError = err.message || 'Anthropic network error';
+    }
+  }
+
+  // If no API key was provided or all configured keys failed, return clear error (NO fake/mock code)
+  return getAPIErrorMessage(lastProviderError);
 }
