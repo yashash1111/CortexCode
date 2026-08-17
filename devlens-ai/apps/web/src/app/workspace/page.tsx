@@ -450,6 +450,8 @@ function WorkspaceContent() {
         parts.push(`--- File: ${f.name} ---\n${f.extractedText.slice(0, 3000)}`);
       } else if (f.type === 'image') {
         parts.push(`[Image attached: ${f.name}]`);
+      } else if (f.type === 'audio') {
+        parts.push(`[Audio attached: ${f.name} (${f.mimeType})]`);
       } else {
         parts.push(`[File attached: ${f.name} (${f.mimeType})]`);
       }

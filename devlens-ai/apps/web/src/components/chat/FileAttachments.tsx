@@ -3,7 +3,7 @@
 import React from 'react';
 import {
   FileCode, FileText, FileImage, FileJson, File, X, FolderOpen,
-  FileSpreadsheet, FileType
+  FileSpreadsheet, FileType, Music
 } from 'lucide-react';
 import type { AttachedFile } from './types';
 
@@ -20,6 +20,7 @@ function formatBytes(bytes: number): string {
 
 function getFileIcon(type: AttachedFile['type'], mimeType: string) {
   if (type === 'image') return <FileImage size={16} className="text-blue-400 shrink-0" />;
+  if (type === 'audio') return <Music size={16} className="text-pink-400 shrink-0" />;
   if (type === 'folder') return <FolderOpen size={16} className="text-amber-400 shrink-0" />;
   if (type === 'code') return <FileCode size={16} className="text-purple-400 shrink-0" />;
   if (type === 'data') return mimeType.includes('json')
@@ -33,6 +34,7 @@ function getFileIcon(type: AttachedFile['type'], mimeType: string) {
 function getTypeBadge(type: AttachedFile['type']): { label: string; className: string } {
   switch (type) {
     case 'image': return { label: 'Image', className: 'bg-blue-950/60 text-blue-300 border-blue-700/40' };
+    case 'audio': return { label: 'Audio', className: 'bg-pink-950/60 text-pink-300 border-pink-700/40' };
     case 'code': return { label: 'Code', className: 'bg-purple-950/60 text-purple-300 border-purple-700/40' };
     case 'data': return { label: 'Data', className: 'bg-yellow-950/60 text-yellow-300 border-yellow-700/40' };
     case 'document': return { label: 'Doc', className: 'bg-zinc-800/60 text-zinc-300 border-zinc-600/40' };
