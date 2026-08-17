@@ -11,7 +11,10 @@ const GEMINI_MODELS = [
   'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-1.5-flash',
-  'gemini-1.5-pro'
+  'gemini-1.5-pro',
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-flash-latest'
 ];
 
 const CEREBRAS_MODELS = [
@@ -28,6 +31,7 @@ export async function generateAiResponseServer(
 ): Promise<string> {
   const geminiKey = userKeys?.gemini || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const cerebrasKey = userKeys?.cerebras || process.env.CEREBRAS_API_KEY;
+  const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
 
   // 1. Try Gemini if key is provided
   if (geminiKey && geminiKey.trim() !== '' && geminiKey !== 'dummy') {
@@ -50,12 +54,22 @@ export async function generateAiResponseServer(
       formattedHistory.push({ role: 'user', parts: [{ text: prompt }] });
     }
 
+    const isOAuth = geminiKey.startsWith('ya29.');
+
     for (const model of GEMINI_MODELS) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.trim()}`;
+        const url = isOAuth
+          ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+          : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.trim()}`;
+
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (isOAuth) {
+          headers['Authorization'] = `Bearer ${geminiKey.trim()}`;
+        }
+
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             contents: formattedHistory,
             generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
@@ -68,9 +82,12 @@ export async function generateAiResponseServer(
           if (text && text.trim()) {
             return text.trim();
           }
+        } else {
+          const errText = await res.text();
+          console.warn(`[Gemini Server] Model ${model} error (${res.status}):`, errText);
         }
-      } catch {
-        // Try next model
+      } catch (err: any) {
+        console.warn(`[Gemini Server] Fetch failed for ${model}:`, err.message);
       }
     }
   }
@@ -111,12 +128,48 @@ export async function generateAiResponseServer(
             return content.trim();
           }
         }
-      } catch {
-        // Try next model
+      } catch (err: any) {
+        console.warn(`[Cerebras Server] Error for ${model}:`, err.message);
       }
     }
   }
 
-  // 3. Fallback to Local AI Engine
+  // 3. Try OpenAI if key is provided
+  if (openaiKey && openaiKey.trim() !== '' && openaiKey.startsWith('sk-')) {
+    try {
+      const messages = [
+        { role: 'system', content: 'You are CortexCode AI, an expert software developer assistant.' },
+        ...history
+          .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: prompt }
+      ];
+
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages,
+          temperature: 0.7
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content && content.trim()) {
+          return content.trim();
+        }
+      }
+    } catch (err: any) {
+      console.warn('[OpenAI Server] Error:', err.message);
+    }
+  }
+
+  // 4. Fallback to Local AI Engine
   return generateLocalAIResponse(prompt, mode);
 }
