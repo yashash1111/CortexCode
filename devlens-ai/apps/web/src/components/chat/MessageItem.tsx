@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Bot, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, Terminal, Volume2, VolumeX, Pause, Play } from 'lucide-react';
 import { useToast } from '@/providers/ToastProvider';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import AttachmentViewer from './AttachmentViewer';
 import type { AttachedFile } from './types';
 
 export interface MessageProps {
@@ -238,6 +239,11 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
           <span>{isUser ? userName : 'CortexCode AI'}</span>
           <span className="text-[10px] font-normal text-zinc-500">{message.timestamp}</span>
         </div>
+
+        {/* Attached Files, Images, Folders & Audio Visualization */}
+        {message.attachedFiles && message.attachedFiles.length > 0 && (
+          <AttachmentViewer attachments={message.attachedFiles} isUser={isUser} />
+        )}
 
         {/* Message Content Body */}
         {message.isThinking || (!message.content && message.isStreaming) ? (

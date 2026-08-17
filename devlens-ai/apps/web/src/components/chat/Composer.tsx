@@ -18,7 +18,8 @@ const SUPPORTED_ACCEPT = [
   '.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.cs', '.go',
   '.rs', '.php', '.rb', '.html', '.css', '.scss', '.sql', '.sh', '.yaml', '.yml',
   '.json', '.xml', '.csv', '.md', '.txt', '.log', '.env', '.toml', '.ini',
-  '.png', '.jpg', '.jpeg', '.webp', '.gif',
+  '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.avif', '.heic',
+  '.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac', '.webm',
   '.pdf', '.doc', '.docx', '.xlsx'
 ].join(',');
 
@@ -78,6 +79,10 @@ export default function Composer({
       try {
         attached.preview = await readFileAsDataURL(file);
       } catch { /* skip preview */ }
+    } else if (type === 'audio') {
+      try {
+        attached.audioUrl = await readFileAsDataURL(file);
+      } catch { /* skip audio */ }
     } else if (isTextReadable(type)) {
       try {
         attached.extractedText = await readFileAsText(file);

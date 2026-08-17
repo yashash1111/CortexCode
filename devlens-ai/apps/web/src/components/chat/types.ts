@@ -5,24 +5,27 @@ export interface FolderFile {
   name: string;
   size: number;
   mimeType: string;
-  type: 'code' | 'image' | 'document' | 'data' | 'unsupported';
+  type: 'code' | 'image' | 'audio' | 'document' | 'data' | 'unsupported';
   extractedText?: string;
+  preview?: string;
 }
 
-export type FileType = 'code' | 'image' | 'document' | 'data' | 'folder' | 'unsupported';
+export type FileType = 'code' | 'image' | 'audio' | 'document' | 'data' | 'folder' | 'unsupported';
 
 export interface AttachedFile {
   id: string;
-  file: File;
+  file?: File;
   name: string;
   type: FileType;
   mimeType: string;
   size: number;
   preview?: string;           // base64 data URL for images
+  audioUrl?: string;          // base64 or blob URL for audio
   extractedText?: string;     // text content for code/text files
   isFolder?: boolean;
   folderName?: string;
   folderContents?: FolderFile[];
+  folderFileCount?: number;
 }
 
 // File type detection
@@ -35,7 +38,9 @@ const CODE_EXTENSIONS = new Set([
 
 const DATA_EXTENSIONS = new Set(['json', 'yaml', 'yml', 'csv', 'xml', 'md', 'txt', 'log', 'env']);
 
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'ico']);
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'ico', 'heic', 'avif']);
+
+const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac', 'webm', 'opus', 'wma']);
 
 const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt']);
 
@@ -50,6 +55,7 @@ export function detectFileType(filename: string, mimeType: string): FileType {
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
 
   if (IMAGE_EXTENSIONS.has(ext) || mimeType.startsWith('image/')) return 'image';
+  if (AUDIO_EXTENSIONS.has(ext) || mimeType.startsWith('audio/')) return 'audio';
   if (CODE_EXTENSIONS.has(ext)) return 'code';
   if (DATA_EXTENSIONS.has(ext)) return 'data';
   if (DOCUMENT_EXTENSIONS.has(ext)) return 'document';

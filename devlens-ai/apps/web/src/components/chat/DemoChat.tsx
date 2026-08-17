@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, X, Sparkles, Bot, User, Loader2, Key, Eye, EyeOff,
-  Copy, Check, Download, Mic, MicOff, Paperclip, Bug, Lightbulb,
+  Copy, Check, Download, Mic, MicOff, Paperclip, FolderOpen, Bug, Lightbulb,
   FileText, ShieldCheck, MessageSquare, Info, ChevronRight,
   Trash2, Cpu, Square, Plus, PanelLeft, Edit2, Trash,
   CornerUpLeft, Brain, ChevronDown, ChevronUp, Quote, Zap,
@@ -12,6 +12,11 @@ import {
 import { getApiUrl } from '@/lib/apiConfig';
 import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import AttachmentViewer from './AttachmentViewer';
+import {
+  detectFileType, formatBytes, readFileAsDataURL, readFileAsText,
+  type AttachedFile, type FolderFile
+} from './types';
 import VoiceInput from './VoiceInput';
 
 interface Message {
@@ -20,7 +25,7 @@ interface Message {
   content: string;
   timestamp: string;
   mode?: string;
-  attachments?: { name: string; size: number }[];
+  attachments?: AttachedFile[];
   isStreaming?: boolean;
   replyTo?: { id: string; role: string; content: string; author: string };
   thinkingDuration?: number;
@@ -149,7 +154,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiProvider, setApiProvider] = useState<'cerebras' | 'gemini' | 'openai'>('gemini');
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-  const [attachedFiles, setAttachedFiles] = useState<{ name: string; size: number; text: string }[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; role: string; content: string; author: string } | null>(null);
   const [selectionTooltip, setSelectionTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -159,6 +164,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleMouseUp = () => {
@@ -364,7 +370,13 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       fullPrompt = `[Replying to ${replyingTo.author}: "${replyingTo.content.slice(0, 300)}"]\n\n${trimmed}`;
     }
     if (attachedFiles.length > 0) {
-      const fileContext = attachedFiles.map(f => `--- File: ${f.name} ---\n${f.text}`).join('\n\n');
+      const fileContext = attachedFiles.map(f => {
+        if (f.isFolder && f.folderContents) {
+          const filesTree = f.folderContents.map(fc => `--- ${fc.path || fc.name} ---\n${fc.extractedText || ''}`).join('\n\n');
+          return `--- Directory / Folder: ${f.folderName || f.name} (${f.folderContents.length} files) ---\n${filesTree}`;
+        }
+        return `--- File: ${f.name} (${f.type}) ---\n${f.extractedText || (f.type === 'image' ? '[Image Attached]' : f.type === 'audio' ? '[Audio Attached]' : '')}`;
+      }).join('\n\n');
       fullPrompt = `${fileContext}\n\nUser Question:\n${fullPrompt}`;
     }
 
@@ -380,7 +392,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       content: trimmed,
       timestamp,
       mode: modeToUse,
-      attachments: attachedFiles.map(f => ({ name: f.name, size: f.size })),
+      attachments: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
       replyTo: currentReplyTo ? { id: currentReplyTo.id, role: currentReplyTo.role, content: currentReplyTo.content, author: currentReplyTo.author } : undefined
     };
 
@@ -591,18 +603,81 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string || '';
-        setAttachedFiles(prev => [...prev, { name: file.name, size: file.size, text }]);
+    const newAttachments: AttachedFile[] = [];
+    for (const file of Array.from(files)) {
+      const type = detectFileType(file.name, file.type);
+      const attached: AttachedFile = {
+        id: 'file-' + Math.random().toString(36).substring(2),
+        name: file.name,
+        type,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size
       };
-      reader.readAsText(file);
-    });
+
+      if (type === 'image') {
+        try {
+          attached.preview = await readFileAsDataURL(file);
+        } catch { /* skip preview */ }
+      } else if (type === 'audio') {
+        try {
+          attached.audioUrl = await readFileAsDataURL(file);
+        } catch { /* skip audio */ }
+      } else {
+        try {
+          attached.extractedText = await readFileAsText(file);
+        } catch { /* skip text */ }
+      }
+      newAttachments.push(attached);
+    }
+    setAttachedFiles(prev => [...prev, ...newAttachments]);
+  };
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const folderFiles: FolderFile[] = [];
+    let rootFolderName = 'Uploaded Folder';
+
+    for (const file of Array.from(files)) {
+      const relativePath = (file as any).webkitRelativePath || file.name;
+      if (relativePath.includes('/')) {
+        rootFolderName = relativePath.split('/')[0];
+      }
+      const type = detectFileType(file.name, file.type);
+      let text = '';
+      if (type === 'code' || type === 'data') {
+        try {
+          text = await readFileAsText(file);
+        } catch { /* skip */ }
+      }
+      folderFiles.push({
+        path: relativePath,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type || 'text/plain',
+        type,
+        extractedText: text
+      });
+    }
+
+    const folderAttachment: AttachedFile = {
+      id: 'folder-' + Date.now(),
+      name: rootFolderName,
+      type: 'folder',
+      isFolder: true,
+      folderName: rootFolderName,
+      size: folderFiles.reduce((acc, f) => acc + f.size, 0),
+      mimeType: 'application/x-directory',
+      folderContents: folderFiles,
+      folderFileCount: folderFiles.length
+    };
+
+    setAttachedFiles(prev => [...prev, folderAttachment]);
   };
 
   const exportChatAsMarkdown = () => {
@@ -911,6 +986,11 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                         : 'bg-zinc-900/90 border border-white/10 text-zinc-200 rounded-tl-xs shadow-xl'
                     }`}
                   >
+                    {/* Persistent Attached Files, Images, Folders & Audio Visualization */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <AttachmentViewer attachments={msg.attachments} isUser={msg.role === 'user'} />
+                    )}
+
                     {msg.role === 'assistant' ? (
                       <div>
                         <div
@@ -996,6 +1076,26 @@ export default function DemoChat({ onClose }: DemoChatProps) {
               </div>
             )}
 
+            {/* Staged Attachments Preview */}
+            {attachedFiles.length > 0 && (
+              <div className="max-w-4xl mx-auto flex flex-wrap gap-2 mb-2 p-2 bg-black/60 rounded-xl border border-white/10 animate-fade-in-up">
+                {attachedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-950/40 border border-purple-500/30 text-xs text-purple-200 shadow">
+                    <span>{f.isFolder ? '📁' : f.type === 'image' ? '🖼️' : f.type === 'audio' ? '🎵' : '📄'}</span>
+                    <span className="truncate max-w-[130px] font-medium">{f.name}</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">({formatBytes(f.size)})</span>
+                    <button
+                      onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
+                      className="text-zinc-400 hover:text-white p-0.5 ml-1 rounded hover:bg-white/10"
+                      title="Remove attachment"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="max-w-4xl mx-auto relative bg-zinc-900/90 border border-white/15 rounded-2xl p-2.5 focus-within:border-purple-500/60 transition shadow-2xl">
               <textarea
                 ref={inputRef}
@@ -1012,9 +1112,16 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition"
-                    title="Attach File"
+                    title="Attach File (Code, Image, Audio, Document)"
                   >
                     <Paperclip size={16} />
+                  </button>
+                  <button
+                    onClick={() => folderInputRef.current?.click()}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition"
+                    title="Upload Entire Project Folder"
+                  >
+                    <FolderOpen size={16} />
                   </button>
                   <VoiceInput onTranscript={(text) => setInput(prev => prev ? prev + ' ' + text : text)} />
                   <span className="text-[11px] text-zinc-500 px-2 py-0.5 bg-white/5 rounded-md font-mono">
@@ -1130,14 +1237,22 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
 
 
-      {/* Hidden File Input */}
+      {/* Hidden File & Folder Inputs */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileUpload}
         className="hidden"
         multiple
-        accept=".txt,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.html,.css,.json,.md"
+        accept=".txt,.js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.html,.css,.json,.md,.png,.jpg,.jpeg,.webp,.gif,.svg,.avif,.heic,.mp3,.wav,.ogg,.m4a,.aac,.flac,.webm,.pdf,.doc,.docx,.xlsx"
+      />
+      <input
+        type="file"
+        ref={folderInputRef}
+        onChange={handleFolderUpload}
+        className="hidden"
+        {...({ webkitdirectory: '', directory: '' } as unknown)}
+        multiple
       />
     </div>
   );
