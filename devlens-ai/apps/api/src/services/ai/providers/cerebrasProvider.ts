@@ -2,9 +2,9 @@ import axios from 'axios';
 import { CORTEXCODE_SYSTEM_PROMPT } from '../aiService';
 
 const CEREBRAS_CANDIDATE_MODELS = [
-  'gemma-4-31b',
-  'gpt-oss-120b',
-  'zai-glm-4.7'
+  'llama-3.3-70b',
+  'llama3.1-8b',
+  'llama3.1-70b'
 ];
 
 export class CerebrasProvider {
@@ -13,7 +13,7 @@ export class CerebrasProvider {
   static async generateResponse(
     prompt: string,
     history: any[] = [],
-    model: string = 'gemma-4-31b',
+    model: string = 'llama-3.3-70b',
     systemPrompt: string = CORTEXCODE_SYSTEM_PROMPT,
     overrideApiKey?: string
   ): Promise<string> {
@@ -43,11 +43,11 @@ export class CerebrasProvider {
     ];
 
     // Determine target model sequence
-    let targetModel = 'gemma-4-31b';
-    if (model.includes('oss') || model.includes('120b')) {
-      targetModel = 'gpt-oss-120b';
-    } else if (model.includes('zai') || model.includes('glm')) {
-      targetModel = 'zai-glm-4.7';
+    let targetModel = 'llama-3.3-70b';
+    if (model.includes('8b')) {
+      targetModel = 'llama3.1-8b';
+    } else if (model.includes('70b')) {
+      targetModel = 'llama-3.3-70b';
     }
 
     const modelsToTry = [targetModel, ...CEREBRAS_CANDIDATE_MODELS.filter(m => m !== targetModel)];

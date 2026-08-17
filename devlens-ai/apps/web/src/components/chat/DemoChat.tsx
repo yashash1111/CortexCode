@@ -141,6 +141,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
   const [error, setError] = useState('');
   const [showApiKeyPanel, setShowApiKeyPanel] = useState(false);
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiProvider, setApiProvider] = useState<'cerebras' | 'gemini' | 'openai'>('gemini');

@@ -40,10 +40,17 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
     toast.showInfo('Feedback Recorded', type === 'like' ? 'Thank you for your feedback!' : 'Feedback submitted.');
   };
 
-  // Helper to parse Inline Formatting (Bold, Inline Code)
+  // Helper to parse Inline Formatting (Bold, Inline Code, LaTeX cleanup)
   const renderInlineFormattedText = (text: string) => {
+    // Clean up unrendered LaTeX notation if present
+    const cleaned = text
+      .replace(/\\\(\s*\\mathcal\{O\}\((.+?)\)\s*\\\)/g, 'O($1)')
+      .replace(/\\\(\s*O\((.+?)\)\s*\\\)/g, 'O($1)')
+      .replace(/\{?\\mathcal\{O\}\((.+?)\)\}?/g, 'O($1)')
+      .replace(/\\mathcal\{O\}/g, 'O');
+
     // Replace **bold** and `code` inline elements
-    const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+    const parts = cleaned.split(/(\*\*.*?\*\*|`.*?`)/g);
 
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
@@ -102,6 +109,17 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
               <div key={idx} className="flex items-start gap-2 ml-2 my-1 text-zinc-200">
                 <span className="text-purple-400 font-bold select-none">•</span>
                 <span className="flex-1">{renderInlineFormattedText(trimmed.replace(/^[-*]\s+/, ''))}</span>
+              </div>
+            );
+          }
+
+          // Numbered List: 1. item
+          const numMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+          if (numMatch) {
+            return (
+              <div key={idx} className="flex items-start gap-2 ml-2 my-1 text-zinc-200">
+                <span className="text-purple-400 font-bold select-none min-w-[1.25rem] text-right">{numMatch[1]}.</span>
+                <span className="flex-1">{renderInlineFormattedText(numMatch[2])}</span>
               </div>
             );
           }
