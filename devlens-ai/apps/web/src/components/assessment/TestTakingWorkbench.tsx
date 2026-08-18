@@ -650,7 +650,7 @@ export default function TestTakingWorkbench({
       </div>
 
       {/* FLOATING GOOGLE MEET STYLE PICTURE-IN-PICTURE (PiP) VIDEO */}
-      <div className="fixed bottom-4 right-4 z-40 w-44 sm:w-52 aspect-video bg-black rounded-xl overflow-hidden border border-white/20 shadow-2xl group transition-transform hover:scale-105">
+      <div className="fixed bottom-4 right-4 z-40 w-48 sm:w-56 aspect-video bg-black rounded-2xl overflow-hidden border border-white/20 shadow-2xl group transition-transform hover:scale-105">
         <video
           ref={pipVideoRef}
           autoPlay
@@ -660,14 +660,24 @@ export default function TestTakingWorkbench({
         />
 
         {/* Live Proctoring Badge */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded-full border border-white/10 text-[9px] font-mono text-white">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-          <span>REC 🔴</span>
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 px-2 py-0.5 bg-black/70 backdrop-blur-md rounded-full border border-white/10 text-[10px] font-mono text-white">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <span>PROCTORED</span>
         </div>
 
-        {/* Screen Share Active Icon */}
-        <div className="absolute top-2 right-2 p-1 bg-black/70 backdrop-blur-md rounded-full text-blue-400">
-          <Monitor size={10} />
+        {/* Status Indicators */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+          <div className="p-1 bg-black/70 backdrop-blur-md rounded-full text-blue-400" title="Screen Broadcasting Active">
+            <Monitor size={11} />
+          </div>
+          <div className="p-1 bg-black/70 backdrop-blur-md rounded-full text-emerald-400" title="Microphone Active">
+            <Mic size={11} />
+          </div>
+        </div>
+
+        {/* Candidate watermark */}
+        <div className="absolute bottom-2 left-2.5 text-[9px] font-mono text-white/70 bg-black/50 px-1.5 py-0.5 rounded">
+          Live Feed Verified
         </div>
       </div>
 

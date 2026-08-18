@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl } from '@/lib/apiConfig';
+import { saveAssessmentToStorage } from './assessmentStorage';
 import QuestionBankView from './QuestionBankView';
 
 interface Props {
@@ -396,18 +397,25 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
     setErrorMessage(null);
     setSaveSuccessMsg(null);
 
+    const totalCalculatedPoints = generatedQuestions.reduce((acc, q) => acc + (q.points || 10), 0);
+
     const payload = {
+      id: isEditing && initialAssessment?.id ? initialAssessment.id : `asm-${Date.now()}`,
       title,
       description,
       durationMinutes: parseInt(durationMinutes as unknown as string, 10) || 60,
-      difficulty,
+      difficulty: difficulty as any,
       subjects: selectedSubjects,
       questionTypes: ['MCQ', 'Coding', 'Subjective', 'Comprehension'],
       sections,
       canNavigateBackwards,
       questions: generatedQuestions,
-      status
+      status,
+      totalPoints: totalCalculatedPoints
     };
+
+    // Save persistently to browser storage
+    saveAssessmentToStorage(payload);
 
     try {
       if (isEditing && initialAssessment?.id) {
@@ -422,8 +430,8 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
         setSaveSuccessMsg('✓ Draft saved successfully.');
         setTimeout(() => setSaveSuccessMsg(null), 3000);
       }
-    } catch (err: any) {
-      // If server unreachable, complete operation gracefully
+    } catch {
+      // Graceful local completion
       if (status === 'PUBLISHED') {
         onAssessmentPublished();
       } else {

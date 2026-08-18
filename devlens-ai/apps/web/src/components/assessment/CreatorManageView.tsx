@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl } from '@/lib/apiConfig';
+import { publishAssessmentInStorage, archiveAssessmentInStorage, deleteAssessmentInStorage } from './assessmentStorage';
 
 interface Props {
   assessments: any[];
@@ -47,38 +48,41 @@ export default function CreatorManageView({
 
   const handlePublish = async (id: string) => {
     setActionLoading(id);
+    publishAssessmentInStorage(id);
     try {
       await axios.post(`${getApiUrl()}/api/assessments/${id}/publish`, {}, { withCredentials: true });
-      onRefresh();
     } catch {
       // fallback
     } finally {
       setActionLoading(null);
+      onRefresh();
     }
   };
 
   const handleArchive = async (id: string) => {
     setActionLoading(id);
+    archiveAssessmentInStorage(id);
     try {
       await axios.post(`${getApiUrl()}/api/assessments/${id}/archive`, {}, { withCredentials: true });
-      onRefresh();
     } catch {
       // fallback
     } finally {
       setActionLoading(null);
+      onRefresh();
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this assessment?')) return;
     setActionLoading(id);
+    deleteAssessmentInStorage(id);
     try {
       await axios.delete(`${getApiUrl()}/api/assessments/${id}`, { withCredentials: true });
-      onRefresh();
     } catch {
       // fallback
     } finally {
       setActionLoading(null);
+      onRefresh();
     }
   };
 

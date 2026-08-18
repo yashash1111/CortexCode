@@ -18,6 +18,7 @@ import CreateAssessmentView from './CreateAssessmentView';
 import QuestionBankView from './QuestionBankView';
 import CreatorManageView from './CreatorManageView';
 import ProctoringCheckView from './ProctoringCheckView';
+import { getPublishedAssessments, getCreatorAssessments } from './assessmentStorage';
 
 export type UserViewMode = 'candidate' | 'creator';
 export type CandidateSubTab = 'available' | 'my-tests' | 'results' | 'practice';
@@ -34,8 +35,8 @@ export default function AssessmentHub() {
   const [creatorTab, setCreatorTab] = useState<CreatorSubTab>('manage');
 
   // Assessments & History
-  const [assessments, setAssessments] = useState<any[]>([]);
-  const [creatorAssessments, setCreatorAssessments] = useState<any[]>([]);
+  const [assessments, setAssessments] = useState<any[]>(() => getPublishedAssessments());
+  const [creatorAssessments, setCreatorAssessments] = useState<any[]>(() => getCreatorAssessments());
   const [history, setHistory] = useState<any[]>([]);
   const [creatorSubmissions, setCreatorSubmissions] = useState<any[]>([]);
   const [submissionsStats, setSubmissionsStats] = useState({ totalSubmissions: 0, averageScore: 85 });
@@ -72,22 +73,32 @@ export default function AssessmentHub() {
 
   // Fetch Available Assessments for Candidates
   const fetchCandidateAssessments = async () => {
+    const localPublished = getPublishedAssessments();
     try {
       const res = await axios.get(`${getApiUrl()}/api/assessments?role=candidate`, { withCredentials: true });
-      if (res.data?.data?.assessments) {
-        setAssessments(res.data.data.assessments);
+      if (res.data?.data?.assessments && res.data.data.assessments.length > 0) {
+        const apiIds = new Set(res.data.data.assessments.map((a: any) => a.id));
+        const customLocal = localPublished.filter(a => !apiIds.has(a.id));
+        setAssessments([...res.data.data.assessments, ...customLocal]);
+        return;
       }
     } catch { /* ignore fallback */ }
+    setAssessments(localPublished);
   };
 
   // Fetch All Assessments for Creators
   const fetchCreatorAssessments = async () => {
+    const localCreator = getCreatorAssessments();
     try {
       const res = await axios.get(`${getApiUrl()}/api/assessments?role=creator`, { withCredentials: true });
-      if (res.data?.data?.assessments) {
-        setCreatorAssessments(res.data.data.assessments);
+      if (res.data?.data?.assessments && res.data.data.assessments.length > 0) {
+        const apiIds = new Set(res.data.data.assessments.map((a: any) => a.id));
+        const customLocal = localCreator.filter(a => !apiIds.has(a.id));
+        setCreatorAssessments([...res.data.data.assessments, ...customLocal]);
+        return;
       }
     } catch { /* ignore fallback */ }
+    setCreatorAssessments(localCreator);
   };
 
   // Fetch Candidate Test History

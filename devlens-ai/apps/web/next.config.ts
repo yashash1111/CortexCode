@@ -8,10 +8,6 @@ const nextConfig: NextConfig = {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     return [
       {
-        source: '/api/assessments/:path*',
-        destination: `${backendUrl}/api/assessments/:path*`,
-      },
-      {
         source: '/api/auth/:path*',
         destination: `${backendUrl}/api/auth/:path*`,
       },
