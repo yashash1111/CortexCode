@@ -114,12 +114,12 @@ export default function CodeExplorerPage() {
         {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Code View with Line Numbers */}
-          <div className="flex-1 overflow-auto p-6 font-mono text-sm leading-relaxed text-zinc-200 bg-zinc-950">
+          <div className="flex-1 overflow-auto p-6 font-mono text-sm leading-relaxed text-[var(--code-text)] bg-[var(--code-bg)]">
             <table className="w-full border-collapse">
               <tbody>
                 {selectedFile.content.split('\n').map((line, idx) => (
-                  <tr key={idx} className="hover:bg-white/[0.02]">
-                    <td className="w-10 select-none text-right pr-4 text-zinc-600 text-xs">{idx + 1}</td>
+                  <tr key={idx} className="hover:bg-[var(--bg-hover)]">
+                    <td className="w-10 select-none text-right pr-4 text-[var(--code-line-num)] text-xs">{idx + 1}</td>
                     <td className="whitespace-pre">{line}</td>
                   </tr>
                 ))}

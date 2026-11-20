@@ -38,3 +38,16 @@ export const passwordResetRateLimiter: any = rateLimit({
     },
   },
 });
+
+export const demoRateLimiter: any = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 25,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      message: 'Demo AI rate limit reached. Sign in for higher fair-use limits.',
+    },
+  },
+});

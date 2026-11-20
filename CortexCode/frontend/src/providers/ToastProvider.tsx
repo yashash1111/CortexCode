@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle2, AlertCircle, Info, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { CheckCircle2, AlertCircle, AlertTriangle, X, Sparkles } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -35,7 +35,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = Math.random().toString(36).substring(2, 9);
       const newToast: ToastMessage = { id, title, description, type, duration };
 
-      setToasts((prev) => [...prev.slice(-4), newToast]); // Keep max 5 active toasts
+      setToasts((prev) => [...prev.slice(-4), newToast]);
 
       if (duration > 0) {
         setTimeout(() => {
@@ -55,34 +55,33 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ showToast, showSuccess, showError, showInfo, showWarning }}>
       {children}
 
-      {/* Floating Glassmorphic Toast Notifications Container */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-start gap-3.5 p-4 rounded-2xl border backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] transition-all duration-300 transform animate-fade-in-up ${
+            className={`pointer-events-auto flex items-start gap-3.5 p-4 rounded-2xl border bg-[var(--modal-bg)] backdrop-blur-xl shadow-[var(--shadow-lg)] transition-all duration-300 transform animate-fade-in-up ${
               toast.type === 'success'
-                ? 'bg-zinc-950/85 border-emerald-500/40 text-emerald-200 shadow-[0_0_30px_rgba(16,185,129,0.2)]'
+                ? 'border-[var(--status-success-border)]'
                 : toast.type === 'error'
-                ? 'bg-zinc-950/85 border-red-500/40 text-red-200 shadow-[0_0_30px_rgba(239,68,68,0.2)]'
+                ? 'border-[var(--status-error-border)]'
                 : toast.type === 'warning'
-                ? 'bg-zinc-950/85 border-amber-500/40 text-amber-200 shadow-[0_0_30px_rgba(245,158,11,0.2)]'
-                : 'bg-zinc-950/85 border-purple-500/40 text-purple-200 shadow-[0_0_30px_rgba(168,85,247,0.25)]'
+                ? 'border-[var(--status-warning-border)]'
+                : 'border-[var(--accent-border)]'
             }`}
           >
             <div className="p-1 rounded-xl shrink-0 mt-0.5">
-              {toast.type === 'success' && <CheckCircle2 size={20} className="text-emerald-400" />}
-              {toast.type === 'error' && <AlertCircle size={20} className="text-red-400" />}
-              {toast.type === 'warning' && <AlertTriangle size={20} className="text-amber-400" />}
-              {toast.type === 'info' && <Sparkles size={20} className="text-purple-400" />}
+              {toast.type === 'success' && <CheckCircle2 size={20} className="text-[var(--status-success)]" />}
+              {toast.type === 'error' && <AlertCircle size={20} className="text-[var(--status-error)]" />}
+              {toast.type === 'warning' && <AlertTriangle size={20} className="text-[var(--status-warning)]" />}
+              {toast.type === 'info' && <Sparkles size={20} className="text-[var(--accent-primary)]" />}
             </div>
 
             <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-black tracking-tight text-white mb-0.5 flex items-center gap-1.5">
+              <h4 className="text-xs font-bold tracking-tight text-[var(--text-primary)] mb-0.5 flex items-center gap-1.5">
                 {toast.title}
               </h4>
               {toast.description && (
-                <p className="text-[11px] font-medium leading-relaxed text-zinc-300">
+                <p className="text-[11px] font-medium leading-relaxed text-[var(--text-secondary)]">
                   {toast.description}
                 </p>
               )}
@@ -90,7 +89,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+              aria-label="Dismiss notification"
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--bg-hover)] transition-colors shrink-0"
             >
               <X size={14} />
             </button>

@@ -15,6 +15,7 @@ import Composer from '@/features/chat/Composer';
 import ModeSelector, { ChatMode } from '@/features/chat/ModeSelector';
 import DragDropOverlay from '@/features/chat/DragDropOverlay';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
@@ -158,7 +159,7 @@ function WorkspaceContent() {
 
   // Settings Modal State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'profile' | 'dashboard' | 'apikeys'>('profile');
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'dashboard'>('profile');
 
   // Usage Stats
   const [usageStats, setUsageStats] = useState({
@@ -170,20 +171,12 @@ function WorkspaceContent() {
     monthlyActivity: [12, 8, 15, 22, 9, 18, 30, 24, 16, 28, 35, 20, 14, 40, 32, 26, 18, 22, 38, 45, 20, 17, 29, 34, 28, 42, 19, 33, 27, 48]
   });
 
-  // User Profile & Custom API Keys
+  // User Profile
   const [userProfile, setUserProfile] = useState({
     name: 'Developer',
     email: 'developer@cortex.ai',
     role: 'Software Engineer',
     plan: 'Pro Developer',
-    apiKey: 'ctx_live_98a72b14c0094ef8a1e2',
-  });
-
-  const [customApiKeys, setCustomApiKeys] = useState<{ gemini: string; openai: string; anthropic: string; cerebras?: string }>({
-    gemini: '',
-    openai: '',
-    anthropic: '',
-    cerebras: ''
   });
 
   useEffect(() => {
@@ -209,11 +202,6 @@ function WorkspaceContent() {
           }
         } catch { /* ignore */ }
       }
-
-      try {
-        const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
-        if (rawKeys) setCustomApiKeys(JSON.parse(rawKeys));
-      } catch { /* ignore */ }
     });
   }, [user]);
 
@@ -404,21 +392,13 @@ function WorkspaceContent() {
     const fileContext = currentFiles.length > 0 ? buildFileContext(currentFiles) : '';
     const fullPrompt = fileContext ? `${fileContext}\n\nUser request: ${userMsg.content}` : userMsg.content;
 
-    const effectiveKeys = {
-      cerebras: customApiKeys.cerebras || undefined,
-      gemini: customApiKeys.gemini || undefined,
-      openai: customApiKeys.openai || undefined,
-      anthropic: customApiKeys.anthropic || undefined
-    };
-
     // Call Backend API with 60s timeout
     axios.post(
       `${getApiUrl()}/api/conversations/${currentConvId}/messages`,
       {
         content: fullPrompt,
         mode: activeMode,
-        attachments: currentFiles,
-        userKeys: effectiveKeys
+        attachments: currentFiles
       },
       { timeout: 60000, withCredentials: true }
     ).then((res) => {
@@ -436,8 +416,7 @@ function WorkspaceContent() {
         {
           message: fullPrompt,
           conversationId: currentConvId,
-          mode: activeMode,
-          userKeys: effectiveKeys
+          mode: activeMode
         },
         { timeout: 60000, withCredentials: true }
       ).then((chatRes) => {
@@ -594,12 +573,12 @@ function WorkspaceContent() {
       <main className="flex-1 flex flex-col h-full bg-[#0a0a0a] relative overflow-hidden">
 
         {/* TOP FLOATING HEADER */}
-        <header className="h-12 border-b border-[#262626] bg-[#121212] px-4 flex items-center justify-between z-10 shrink-0">
-          <div className="flex items-center gap-2.5">
+        <header className="h-12 border-b border-[#262626] bg-[#121212] px-3 sm:px-4 flex items-center justify-between gap-2 z-10 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="md:hidden p-1.5 text-neutral-400 hover:text-white hover:bg-[#1a1a1a] rounded transition-colors"
+              className="md:hidden p-1.5 text-neutral-400 hover:text-white hover:bg-[#1a1a1a] rounded transition-colors shrink-0"
             >
               <Menu size={18} />
             </button>
@@ -607,24 +586,24 @@ function WorkspaceContent() {
             {/* Command Palette Launcher */}
             <button
               onClick={() => setShowCmdPalette(true)}
-              className="flex items-center gap-2 px-2.5 py-1 bg-[#171717] hover:bg-[#1f1f1f] border border-[#262626] rounded text-xs font-mono text-neutral-400 hover:text-white transition-all"
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-[#171717] hover:bg-[#1f1f1f] border border-[#262626] rounded text-xs font-mono text-neutral-400 hover:text-white transition-all whitespace-nowrap shrink-0"
               title="Global Command Palette (Cmd+K)"
             >
-              <Search size={13} className="text-blue-400" />
-              <span className="hidden sm:inline">Search workspace...</span>
+              <Search size={13} className="text-blue-400 shrink-0" />
+              <span className="hidden lg:inline">Search workspace...</span>
               <kbd className="px-1.5 py-0.2 bg-[#0a0a0a] rounded text-[10px] text-neutral-400 font-sans border border-[#262626]">⌘K</kbd>
             </button>
 
             {/* Model Selector Dropdown (when in Chat tab) */}
             {activeWorkspaceTab === 'chat' && (
-              <div className="relative">
+              <div className="relative min-w-0">
                 <button
                   onClick={() => setShowModelDropdown(!showModelDropdown)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#171717] hover:bg-[#1f1f1f] border border-[#262626] rounded text-xs font-semibold text-neutral-300 hover:text-white transition-all"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-[#171717] hover:bg-[#1f1f1f] border border-[#262626] rounded text-xs font-semibold text-neutral-300 hover:text-white transition-all whitespace-nowrap"
                 >
-                  <Sparkles size={13} className="text-blue-400" />
-                  <span className="hidden md:inline">{selectedModel}</span>
-                  <ChevronDown size={13} className="text-neutral-400" />
+                  <Sparkles size={13} className="text-blue-400 shrink-0" />
+                  <span className="hidden md:inline truncate max-w-[160px]">{selectedModel}</span>
+                  <ChevronDown size={13} className="text-neutral-400 shrink-0" />
                 </button>
 
                 {showModelDropdown && (
@@ -659,10 +638,11 @@ function WorkspaceContent() {
 
           <div className="flex items-center gap-3">
             {/* Token Counter */}
-            <div className="text-xs text-neutral-400 hidden sm:flex items-center gap-2 font-mono">
-              <Activity size={13} className="text-emerald-400" />
-              <span>Tokens: <strong className="text-white">{usageStats.tokensUsed.toLocaleString()}</strong> / 1M</span>
+            <div className="text-xs text-[var(--text-muted)] hidden xl:flex items-center gap-2 font-mono whitespace-nowrap">
+              <Activity size={13} className="text-[var(--status-success)]" />
+              <span>Tokens: <strong className="text-[var(--text-primary)]">{usageStats.tokensUsed.toLocaleString()}</strong> / 1M</span>
             </div>
+            <ThemeSwitcher />
           </div>
         </header>
 
@@ -776,12 +756,11 @@ function WorkspaceContent() {
             <div className="flex border-b border-white/10 gap-2 mb-6">
               {[
                 { id: 'profile', label: '👤 Profile' },
-                { id: 'dashboard', label: '📊 Dashboard' },
-                { id: 'apikeys', label: '🔑 API Keys' }
+                { id: 'dashboard', label: '📊 Dashboard' }
               ].map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setSettingsTab(tab.id as 'profile' | 'dashboard' | 'apikeys')}
+                  onClick={() => setSettingsTab(tab.id as 'profile' | 'dashboard')}
                   className={`px-4 py-2 text-xs font-bold transition border-b-2 ${
                     settingsTab === tab.id
                       ? 'border-purple-500 text-purple-300'
@@ -885,60 +864,6 @@ function WorkspaceContent() {
             )}
 
             {/* API Keys Tab */}
-            {settingsTab === 'apikeys' && (
-              <div className="space-y-4">
-                <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-xl">
-                  <div className="text-xs font-bold text-purple-300 mb-1">🔑 AI Model Provider Keys</div>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    Paste your free Google Gemini API key or OpenAI key below. Keys are stored locally in your browser.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 uppercase mb-1 flex justify-between">
-                    <span>Google Gemini API Key</span>
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-purple-400 hover:underline normal-case text-[11px]"
-                    >
-                      Get Free Key →
-                    </a>
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="AIzaSy..."
-                    value={customApiKeys.gemini}
-                    onChange={(e) => setCustomApiKeys({ ...customApiKeys, gemini: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-zinc-900 border border-white/15 rounded-xl text-sm font-mono text-white focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 uppercase mb-1">OpenAI API Key</label>
-                  <input
-                    type="password"
-                    placeholder="sk-..."
-                    value={customApiKeys.openai}
-                    onChange={(e) => setCustomApiKeys({ ...customApiKeys, openai: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-zinc-900 border border-white/15 rounded-xl text-sm font-mono text-white focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 uppercase mb-1">Anthropic Claude Key</label>
-                  <input
-                    type="password"
-                    placeholder="sk-ant-..."
-                    value={customApiKeys.anthropic}
-                    onChange={(e) => setCustomApiKeys({ ...customApiKeys, anthropic: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-zinc-900 border border-white/15 rounded-xl text-sm font-mono text-white focus:outline-none focus:border-purple-500 transition"
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="pt-6 mt-4 border-t border-white/10 flex justify-between">
               <button
                 onClick={() => router.push('/logout')}
@@ -948,11 +873,8 @@ function WorkspaceContent() {
               </button>
               <button
                 onClick={() => {
-                  try {
-                    localStorage.setItem('cortexcode_user_api_keys', JSON.stringify(customApiKeys));
-                  } catch { /* ignore */ }
                   setShowSettingsModal(false);
-                  toast.showSuccess('Settings Saved', 'Your API keys and preferences have been updated.');
+                  toast.showSuccess('Settings Saved', 'Your workspace preferences have been updated.');
                 }}
                 className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition"
               >

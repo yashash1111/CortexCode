@@ -29,7 +29,7 @@ function renderInlineWithCitations(
             key={idx}
             type="button"
             onClick={() => onSelectCitation(matched)}
-            className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 font-mono text-[11px] transition-colors cursor-pointer"
+            className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-[var(--accent-soft)] hover:bg-[var(--bg-active)] text-[var(--accent-primary)] border border-[var(--accent-border)] font-mono text-[11px] transition-colors cursor-pointer"
             title={`View ${matched.documentName}${matched.pageNumber ? ` (Page ${matched.pageNumber})` : ''}`}
           >
             {part}
@@ -47,7 +47,7 @@ function renderInlineWithCitations(
             return (
               <code
                 key={cIdx}
-                className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 font-mono text-[12px]"
+                className="px-1.5 py-0.5 rounded bg-[var(--code-header-bg)] text-[var(--code-text)] border border-[var(--code-border)] font-mono text-[12px]"
               >
                 {seg.slice(1, -1)}
               </code>
@@ -57,7 +57,7 @@ function renderInlineWithCitations(
           const boldSplit = seg.split(/(\*\*[^*]+\*\*)/g);
           return boldSplit.map((b, bIdx) =>
             b.startsWith('**') && b.endsWith('**') ? (
-              <strong key={`${cIdx}-${bIdx}`} className="font-semibold text-zinc-100">
+              <strong key={`${cIdx}-${bIdx}`} className="font-semibold text-[var(--text-primary)]">
                 {b.slice(2, -2)}
               </strong>
             ) : (
@@ -82,18 +82,18 @@ export function MarkdownRenderer({
   const blocks = content.split(/(```[\s\S]*?```)/g);
 
   return (
-    <div className="space-y-2.5 text-sm leading-relaxed text-zinc-200">
+    <div className="space-y-2.5 text-sm leading-relaxed text-[var(--text-secondary)]">
       {blocks.map((block, idx) => {
         if (block.startsWith('```') && block.endsWith('```')) {
           const lines = block.slice(3, -3).split('\n');
           const lang = lines[0]?.trim() || 'code';
           const codeBody = lines.slice(1).join('\n');
           return (
-            <div key={idx} className="rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden my-2">
-              <div className="px-3 py-1.5 bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-mono text-zinc-400">
+            <div key={idx} className="rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)] overflow-hidden my-2">
+              <div className="px-3 py-1.5 bg-[var(--code-header-bg)] border-b border-[var(--code-border)] text-[11px] font-mono text-[var(--text-muted)]">
                 {lang}
               </div>
-              <pre className="p-3 overflow-x-auto text-xs font-mono text-zinc-200">
+              <pre className="p-3 overflow-x-auto text-xs font-mono text-[var(--code-text)]">
                 <code>{codeBody}</code>
               </pre>
             </div>

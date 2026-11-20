@@ -1,9 +1,30 @@
-import axios from 'axios';
 import prisma from '../../../config/prisma';
 import { estimateModelCost } from '../../../config/modelPricing';
 import { detectPromptInjection, sanitizeUserPrompt } from '../../../shared/utils/promptGuard';
+import {
+  ALL_CENTRAL_PROVIDER_IDS,
+  CENTRAL_PROVIDERS,
+  CentralAIProviderName,
+  getAIConfig,
+  getProviderCredentials,
+} from './aiConfig';
+import { AIQuotaService } from './aiQuotaService';
+import { ProviderHealthManager } from './providerHealth';
+import { redactSecrets } from './secretRedactor';
+import { cloudflareAdapter } from './providers/cloudflareAdapter';
+import { geminiAdapter } from './providers/geminiAdapter';
+import { groqAdapter } from './providers/groqAdapter';
+import { openrouterAdapter } from './providers/openrouterAdapter';
+import {
+  AdapterCallParams,
+  AdapterCallResult,
+  ProviderAdapter,
+  ProviderNormalizedError,
+  approxTokens,
+  classifyProviderError,
+} from './providers/types';
 
-export type AIProviderName = 'gemini' | 'groq' | 'huggingface' | 'openai' | 'cerebras' | 'claude' | 'ai-service';
+export type AIProviderName = CentralAIProviderName;
 
 export interface GatewayMessage {
   role: 'system' | 'user' | 'assistant';
@@ -21,14 +42,8 @@ export interface AIGatewayRequest {
   userId?: string;
   workspaceId?: string;
   requestType?: string;
-  userKeys?: {
-    gemini?: string;
-    groq?: string;
-    huggingface?: string;
-    openai?: string;
-    cerebras?: string;
-    anthropic?: string;
-  };
+  /** @deprecated Ignored in centralized mode; backend credentials are always used. */
+  userKeys?: Record<string, string | undefined>;
 }
 
 export interface AIGatewayResponse {
@@ -44,38 +59,29 @@ export interface AIGatewayResponse {
   estimatedCost: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 25_000;
-
-function getProviderKey(provider: AIProviderName, userKeys?: AIGatewayRequest['userKeys']): string | undefined {
-  let raw: string | undefined;
-  switch (provider) {
-    case 'gemini':
-      raw = userKeys?.gemini || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-      break;
-    case 'groq':
-      raw = userKeys?.groq || process.env.GROQ_API_KEY;
-      break;
-    case 'huggingface':
-      raw = userKeys?.huggingface || process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN;
-      break;
-    case 'openai':
-      raw = userKeys?.openai || process.env.OPENAI_API_KEY;
-      break;
-    case 'cerebras':
-      raw = userKeys?.cerebras || process.env.CEREBRAS_API_KEY;
-      break;
-    case 'claude':
-      raw = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
-      break;
-    default:
-      raw = undefined;
+export class TemporaryAIUnavailableError extends Error {
+  status = 503;
+  constructor(message = 'AI service is temporarily unavailable. Please try again in a few moments.') {
+    super(message);
+    this.name = 'TemporaryAIUnavailableError';
   }
-  if (!raw || raw.trim() === '' || raw.trim() === 'dummy') return undefined;
-  return raw.trim();
 }
 
-function approxTokens(text: string): number {
-  return Math.max(1, Math.ceil(text.length / 4));
+const DEFAULT_ADAPTERS: Record<CentralAIProviderName, ProviderAdapter> = {
+  gemini: geminiAdapter,
+  groq: groqAdapter,
+  openrouter: openrouterAdapter,
+  cloudflare: cloudflareAdapter,
+};
+
+let adapterOverrides: Partial<Record<CentralAIProviderName, ProviderAdapter>> = {};
+
+function getAdapter(provider: CentralAIProviderName): ProviderAdapter {
+  return adapterOverrides[provider] || DEFAULT_ADAPTERS[provider];
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function persistUsageLog(params: {
@@ -107,199 +113,95 @@ async function persistUsageLog(params: {
         totalTokens: params.totalTokens,
         estimatedCost: params.estimatedCost,
         status: params.status,
-        errorMessage: params.errorMessage || null,
+        errorMessage: params.errorMessage ? redactSecrets(params.errorMessage).slice(0, 500) : null,
         metadata: { usageEstimated: Boolean(params.usageEstimated) },
       },
     });
-  } catch (err: any) {
-    console.warn('[AIGateway] Failed to persist UsageLog:', err.message);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.warn('[AIGateway] Failed to persist UsageLog:', redactSecrets(msg));
   }
 }
 
 export class AIGateway {
-  static getConfiguredProviders() {
+  static setAdapterOverridesForTests(overrides: Partial<Record<CentralAIProviderName, ProviderAdapter>>) {
+    adapterOverrides = overrides;
+  }
+
+  static clearAdapterOverridesForTests() {
+    adapterOverrides = {};
+  }
+
+  static getConfiguredProviders(): Record<CentralAIProviderName, boolean> {
     return {
-      gemini: Boolean(getProviderKey('gemini')),
-      groq: Boolean(getProviderKey('groq')),
-      huggingface: Boolean(getProviderKey('huggingface')),
-      openai: Boolean(getProviderKey('openai')),
-      cerebras: Boolean(getProviderKey('cerebras')),
-      claude: Boolean(getProviderKey('claude')),
+      gemini: getProviderCredentials('gemini').configured,
+      groq: getProviderCredentials('groq').configured,
+      openrouter: getProviderCredentials('openrouter').configured,
+      cloudflare: getProviderCredentials('cloudflare').configured,
     };
   }
 
-  private static resolveProviderOrder(
-    preferred?: AIProviderName | 'auto',
-    userKeys?: AIGatewayRequest['userKeys']
-  ): AIProviderName[] {
-    const envPref = (preferred && preferred !== 'auto'
-      ? preferred
-      : (process.env.AI_PROVIDER || 'auto').toLowerCase()) as AIProviderName | 'auto';
-
-    const all: AIProviderName[] = ['gemini', 'groq', 'huggingface', 'openai', 'cerebras', 'claude'];
-    const configured = all.filter((p) => Boolean(getProviderKey(p, userKeys)));
-
-    if (envPref !== 'auto' && configured.includes(envPref)) {
-      return [envPref, ...configured.filter((p) => p !== envPref)];
-    }
-    return configured;
-  }
-
-  private static sanitizeMessages(messages: GatewayMessage[]): GatewayMessage[] {
+  private static sanitizeMessages(messages: GatewayMessage[], maxInputChars: number): GatewayMessage[] {
+    let remaining = maxInputChars;
     return messages.map((m) => {
-      const cleaned = sanitizeUserPrompt(m.content);
+      const cleaned = sanitizeUserPrompt(m.content || '');
       if (m.role === 'user' && detectPromptInjection(cleaned)) {
         console.warn('[AIGateway] Potential prompt-injection pattern detected in user input');
       }
-      return { role: m.role, content: cleaned };
+      const sliced = cleaned.slice(0, Math.max(0, remaining));
+      remaining = Math.max(0, remaining - sliced.length);
+      return { role: m.role, content: sliced };
     });
   }
 
-  private static async callOpenAICompatible(params: {
-    url: string;
-    apiKey: string;
-    model: string;
-    messages: GatewayMessage[];
-    temperature: number;
-    maxTokens: number;
-    responseFormat: 'text' | 'json';
-    timeoutMs: number;
-    supportsJsonMode?: boolean;
-  }) {
-    const body: Record<string, any> = {
-      model: params.model,
-      messages: params.messages,
-      temperature: params.temperature,
-      max_tokens: params.maxTokens,
-    };
-    if (params.responseFormat === 'json' && params.supportsJsonMode !== false) {
-      body.response_format = { type: 'json_object' };
-    }
+  private static async resolveOrderedProviders(preferred?: AIProviderName | 'auto') {
+    const cfg = getAIConfig();
+    const effective = await ProviderHealthManager.getEffectiveConfigs();
+    const enabledAndConfigured = effective.filter((c) => c.enabled && c.configured && ProviderHealthManager.isAvailable(c.provider));
 
-    const res = await axios.post(params.url, body, {
-      headers: { Authorization: `Bearer ${params.apiKey}`, 'Content-Type': 'application/json' },
-      timeout: params.timeoutMs,
-    });
+    const preferredId =
+      preferred && preferred !== 'auto' && ALL_CENTRAL_PROVIDER_IDS.includes(preferred)
+        ? preferred
+        : cfg.defaultProvider;
 
-    const content = res.data?.choices?.[0]?.message?.content;
-    if (!content || !content.trim()) {
-      throw new Error(`Empty content returned from ${params.model}`);
+    const preferredEntry = enabledAndConfigured.find((c) => c.provider === preferredId);
+    const ordered = preferredEntry
+      ? [preferredEntry, ...enabledAndConfigured.filter((c) => c.provider !== preferredId)]
+      : enabledAndConfigured;
+
+    if (!cfg.fallbackEnabled && ordered.length > 1) {
+      return [ordered[0]];
     }
-    const usage = res.data?.usage;
-    const usageEstimated = !usage || typeof usage.total_tokens !== 'number';
-    const inputTokens = Number(usage?.prompt_tokens ?? approxTokens(params.messages.map((x) => x.content).join(' ')));
-    const outputTokens = Number(usage?.completion_tokens ?? approxTokens(content));
-    const totalTokens = Number(usage?.total_tokens ?? inputTokens + outputTokens);
-    return { content: content.trim(), model: params.model, inputTokens, outputTokens, totalTokens, usageEstimated };
+    return ordered;
   }
 
-  private static async callGemini(
-    messages: GatewayMessage[],
-    apiKey: string,
-    model: string | undefined,
-    temperature: number,
-    maxTokens: number,
-    responseFormat: 'text' | 'json',
-    timeoutMs: number
-  ) {
-    const candidates = model && model.startsWith('gemini')
-      ? [model, 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest']
-      : ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest'];
-    const uniqueModels = Array.from(new Set(candidates));
-
-    const systemText = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-    const contents: { role: string; parts: { text: string }[] }[] = [];
-    for (const m of messages.filter((m) => m.role !== 'system')) {
-      const role = m.role === 'assistant' ? 'model' : 'user';
-      if (contents.length > 0 && contents[contents.length - 1].role === role) {
-        contents[contents.length - 1].parts.push({ text: m.content });
-      } else {
-        contents.push({ role, parts: [{ text: m.content }] });
-      }
+  private static selectModelForProvider(
+    provider: CentralAIProviderName,
+    configuredModel: string,
+    requestedModel?: string
+  ): string {
+    const def = CENTRAL_PROVIDERS[provider];
+    if (requestedModel && def.supportedModels.includes(requestedModel)) {
+      return requestedModel;
     }
-    if (contents.length === 0) contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
-
-    const generationConfig: Record<string, any> = { temperature, maxOutputTokens: maxTokens };
-    if (responseFormat === 'json') generationConfig.responseMimeType = 'application/json';
-
-    let lastErr: any;
-    for (const m of uniqueModels) {
-      try {
-        const isOAuth = apiKey.startsWith('ya29.');
-        const url = isOAuth
-          ? `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`
-          : `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
-
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (isOAuth) headers['Authorization'] = `Bearer ${apiKey}`;
-
-        const res = await axios.post(
-          url,
-          {
-            ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
-            contents,
-            generationConfig,
-          },
-          { headers, timeout: timeoutMs }
-        );
-
-        const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text && text.trim()) {
-          const meta = res.data?.usageMetadata;
-          const usageEstimated = !meta || typeof meta.totalTokenCount !== 'number';
-          const inputTokens = Number(meta?.promptTokenCount ?? approxTokens(messages.map((x) => x.content).join(' ')));
-          const outputTokens = Number(meta?.candidatesTokenCount ?? approxTokens(text));
-          const totalTokens = Number(meta?.totalTokenCount ?? inputTokens + outputTokens);
-          return { content: text.trim(), model: m, inputTokens, outputTokens, totalTokens, usageEstimated };
-        }
-      } catch (err: any) {
-        lastErr = err;
-      }
-    }
-    throw lastErr || new Error('All Gemini models failed');
-  }
-
-  private static async callClaude(
-    messages: GatewayMessage[],
-    apiKey: string,
-    temperature: number,
-    maxTokens: number,
-    timeoutMs: number
-  ) {
-    const model = 'claude-3-5-sonnet-20240620';
-    const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-    const chatMessages = messages.filter((m) => m.role !== 'system');
-
-    const res = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      { model, max_tokens: maxTokens, temperature, ...(system ? { system } : {}), messages: chatMessages },
-      {
-        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-        timeout: timeoutMs,
-      }
-    );
-
-    const content = res.data?.content?.[0]?.text;
-    if (!content || !content.trim()) throw new Error('Claude returned empty content');
-    const usage = res.data?.usage;
-    const usageEstimated = !usage;
-    const inputTokens = Number(usage?.input_tokens ?? approxTokens(messages.map((x) => x.content).join(' ')));
-    const outputTokens = Number(usage?.output_tokens ?? approxTokens(content));
-    return { content: content.trim(), model, inputTokens, outputTokens, totalTokens: inputTokens + outputTokens, usageEstimated };
+    return configuredModel || def.defaultModel;
   }
 
   static async generate(req: AIGatewayRequest): Promise<AIGatewayResponse> {
-    const sanitizedMessages = this.sanitizeMessages(req.messages);
+    const cfg = getAIConfig();
+    await AIQuotaService.enforceUserFairUse(req.userId);
+
+    const sanitizedMessages = this.sanitizeMessages(req.messages, cfg.maxInputChars);
     const temperature = req.temperature ?? 0.7;
-    const maxTokens = req.maxTokens ?? 2048;
+    const maxTokens = Math.min(cfg.maxOutputTokens, req.maxTokens ?? 2048);
     const responseFormat = req.responseFormat ?? 'text';
-    const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timeoutMs = req.timeoutMs ?? cfg.timeoutMs;
     const requestType = req.requestType || (responseFormat === 'json' ? 'json' : 'chat');
 
     if (process.env.AI_MOCK_MODE === 'true') {
       const start = Date.now();
       const lastUser = [...sanitizedMessages].reverse().find((m) => m.role === 'user')?.content || '';
-      let parsedJson: any;
+      let parsedJson: unknown;
       let content: string;
 
       if (requestType === 'eval_judge') {
@@ -322,7 +224,7 @@ export class AIGateway {
         };
         content = JSON.stringify(parsedJson);
       } else if (responseFormat === 'json') {
-        parsedJson = { ok: true, summary: 'Deterministic mock JSON response' };
+        parsedJson = { status: 'ok', ok: true, summary: 'Deterministic mock JSON response' };
         content = JSON.stringify(parsedJson);
       } else {
         content = `Deterministic grounded response for "${lastUser.slice(0, 120)}" [1].`;
@@ -362,335 +264,326 @@ export class AIGateway {
       };
     }
 
-    const providers = this.resolveProviderOrder(req.provider, req.userKeys);
-    if (providers.length === 0) {
-      throw new Error('No AI provider API keys are configured on the server.');
+    const candidates = await this.resolveOrderedProviders(req.provider);
+    if (candidates.length === 0) {
+      throw new TemporaryAIUnavailableError(
+        'AI service is temporarily unavailable because no healthy central providers are currently available.'
+      );
     }
 
-    const start = Date.now();
+    const overallStart = Date.now();
     const errors: string[] = [];
 
-    for (const provider of providers) {
-      const apiKey = getProviderKey(provider, req.userKeys);
-      if (!apiKey) continue;
+    for (let idx = 0; idx < candidates.length; idx++) {
+      const candidate = candidates[idx];
+      const creds = getProviderCredentials(candidate.provider);
+      if (!creds.configured || !creds.apiKey) continue;
 
-      try {
-        let result: {
-          content: string;
-          model: string;
-          inputTokens: number;
-          outputTokens: number;
-          totalTokens: number;
-          usageEstimated: boolean;
-        };
+      const adapter = getAdapter(candidate.provider);
+      const model = this.selectModelForProvider(candidate.provider, candidate.selectedModel, req.model);
+      const effectiveResponseFormat =
+        responseFormat === 'json' && !CENTRAL_PROVIDERS[candidate.provider].supportsJsonMode ? 'text' : responseFormat;
 
-        if (provider === 'gemini') {
-          result = await this.callGemini(sanitizedMessages, apiKey, req.model, temperature, maxTokens, responseFormat, timeoutMs);
-        } else if (provider === 'groq') {
-          const targetModel = req.model && req.model.includes('llama') ? req.model : 'llama-3.3-70b-versatile';
-          result = await this.callOpenAICompatible({
-            url: 'https://api.groq.com/openai/v1/chat/completions',
-            apiKey,
-            model: targetModel,
+      const maxAttempts = 1 + cfg.maxRetries;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const attemptStart = Date.now();
+        try {
+          const callParams: AdapterCallParams = {
+            apiKey: creds.apiKey,
+            accountId: creds.accountId,
+            model,
             messages: sanitizedMessages,
             temperature,
             maxTokens,
-            responseFormat,
+            responseFormat: effectiveResponseFormat,
             timeoutMs,
-            supportsJsonMode: true,
-          });
-        } else if (provider === 'huggingface') {
-          const targetModel = req.model && req.model.includes('/') ? req.model : 'Qwen/Qwen2.5-72B-Instruct';
-          result = await this.callOpenAICompatible({
-            url: 'https://router.huggingface.co/v1/chat/completions',
-            apiKey,
-            model: targetModel,
-            messages: sanitizedMessages,
-            temperature,
-            maxTokens,
-            responseFormat,
-            timeoutMs,
-            supportsJsonMode: false,
-          });
-        } else if (provider === 'openai') {
-          const targetModel = req.model && req.model.startsWith('gpt-') ? req.model : 'gpt-4o-mini';
-          result = await this.callOpenAICompatible({
-            url: 'https://api.openai.com/v1/chat/completions',
-            apiKey,
-            model: targetModel,
-            messages: sanitizedMessages,
-            temperature,
-            maxTokens,
-            responseFormat,
-            timeoutMs,
-            supportsJsonMode: true,
-          });
-        } else if (provider === 'cerebras') {
-          const targetModel = req.model && req.model.includes('llama') ? req.model : 'llama-3.3-70b';
-          result = await this.callOpenAICompatible({
-            url: 'https://api.cerebras.ai/v1/chat/completions',
-            apiKey,
-            model: targetModel,
-            messages: sanitizedMessages,
-            temperature,
-            maxTokens,
-            responseFormat,
-            timeoutMs,
-            supportsJsonMode: true,
-          });
-        } else {
-          result = await this.callClaude(sanitizedMessages, apiKey, temperature, maxTokens, timeoutMs);
-        }
+          };
 
-        let parsedJson: any;
-        if (responseFormat === 'json') {
-          const cleanedJson = result.content.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-          try {
-            parsedJson = JSON.parse(cleanedJson);
-          } catch {
-            throw new Error(`Provider ${provider} returned invalid JSON`);
+          const result: AdapterCallResult = await adapter.generate(callParams);
+
+          let parsedJson: unknown;
+          if (responseFormat === 'json') {
+            const cleanedJson = result.content.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+            try {
+              parsedJson = JSON.parse(cleanedJson);
+            } catch {
+              throw new ProviderNormalizedError({
+                provider: candidate.provider,
+                kind: 'upstream_error',
+                message: `Provider ${candidate.provider} returned invalid JSON`,
+                retryableSameProvider: false,
+                fallbackAllowed: true,
+              });
+            }
           }
+
+          const latencyMs = Date.now() - attemptStart;
+          const estimatedCost = estimateModelCost(result.model, result.inputTokens, result.outputTokens);
+
+          await ProviderHealthManager.recordSuccess(candidate.provider, result.model, latencyMs);
+          await persistUsageLog({
+            userId: req.userId,
+            workspaceId: req.workspaceId,
+            provider: candidate.provider,
+            model: result.model,
+            requestType,
+            latencyMs,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            totalTokens: result.totalTokens,
+            usageEstimated: result.usageEstimated,
+            estimatedCost,
+            status: 'success',
+          });
+
+          return {
+            content: result.content,
+            ...(parsedJson !== undefined ? { json: parsedJson } : {}),
+            provider: candidate.provider,
+            model: result.model,
+            latencyMs,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            totalTokens: result.totalTokens,
+            usageEstimated: result.usageEstimated,
+            estimatedCost,
+          };
+        } catch (rawErr) {
+          const norm = classifyProviderError(candidate.provider, rawErr);
+          const attemptLatency = Date.now() - attemptStart;
+
+          if (!norm.fallbackAllowed) {
+            const badReqErr = new Error(norm.message) as Error & { status?: number };
+            badReqErr.status = norm.statusCode || 400;
+            throw badReqErr;
+          }
+
+          const hasMoreAttempts = norm.retryableSameProvider && attempt + 1 < maxAttempts;
+          if (hasMoreAttempts) {
+            const backoffMs = Math.min(1500, 150 * Math.pow(2, attempt));
+            await sleep(backoffMs);
+            continue;
+          }
+
+          const healthStatus =
+            norm.kind === 'rate_limit'
+              ? 'rate_limited'
+              : norm.kind === 'auth_error'
+              ? 'auth_error'
+              : 'degraded';
+
+          await ProviderHealthManager.recordFailure({
+            provider: candidate.provider,
+            model,
+            status: healthStatus,
+            statusCode: norm.statusCode,
+            latencyMs: attemptLatency,
+            errorMessage: norm.message,
+            cooldownMs: norm.kind === 'rate_limit' ? 30_000 : undefined,
+            isFallbackTrigger: idx + 1 < candidates.length,
+          });
+
+          errors.push(`${candidate.provider}: ${norm.message}`);
+          console.warn(`[AIGateway] Provider ${candidate.provider} failed (${norm.kind}): ${norm.message}`);
+          break;
         }
-
-        const latencyMs = Date.now() - start;
-        const estimatedCost = estimateModelCost(result.model, result.inputTokens, result.outputTokens);
-
-        await persistUsageLog({
-          userId: req.userId,
-          workspaceId: req.workspaceId,
-          provider,
-          model: result.model,
-          requestType,
-          latencyMs,
-          inputTokens: result.inputTokens,
-          outputTokens: result.outputTokens,
-          totalTokens: result.totalTokens,
-          usageEstimated: result.usageEstimated,
-          estimatedCost,
-          status: 'success',
-        });
-
-        return {
-          content: result.content,
-          ...(parsedJson !== undefined ? { json: parsedJson } : {}),
-          provider,
-          model: result.model,
-          latencyMs,
-          inputTokens: result.inputTokens,
-          outputTokens: result.outputTokens,
-          totalTokens: result.totalTokens,
-          usageEstimated: result.usageEstimated,
-          estimatedCost,
-        };
-      } catch (err: any) {
-        const status = err?.response?.status;
-        const msg = err?.response?.data?.error?.message || err?.message || 'Unknown provider error';
-        errors.push(`${provider}${status ? ` (${status})` : ''}: ${msg}`);
-        console.warn(`[AIGateway] Provider ${provider} failed: ${msg}`);
       }
     }
 
-    const latencyMs = Date.now() - start;
-    const errorSummary = errors.join(' | ');
+    const totalLatencyMs = Date.now() - overallStart;
     await persistUsageLog({
       userId: req.userId,
       workspaceId: req.workspaceId,
-      provider: providers[0],
+      provider: candidates[0]?.provider || 'none',
       model: req.model || 'unknown',
       requestType,
-      latencyMs,
+      latencyMs: totalLatencyMs,
       inputTokens: 0,
       outputTokens: 0,
       totalTokens: 0,
       usageEstimated: true,
       estimatedCost: 0,
       status: 'error',
-      errorMessage: errorSummary,
+      errorMessage: errors.join(' | '),
     });
 
-    throw new Error(`All configured AI providers failed: ${errorSummary}`);
+    throw new TemporaryAIUnavailableError(
+      'AI service is temporarily unavailable across configured providers. Please try again shortly.'
+    );
   }
 
   static async *stream(req: AIGatewayRequest): AsyncGenerator<string, AIGatewayResponse, unknown> {
-    const sanitizedMessages = this.sanitizeMessages(req.messages);
-    const providers = this.resolveProviderOrder(req.provider, req.userKeys);
-    if (providers.length === 0) {
-      throw new Error('No AI provider API keys are configured on the server.');
+    const cfg = getAIConfig();
+    await AIQuotaService.enforceUserFairUse(req.userId);
+
+    const sanitizedMessages = this.sanitizeMessages(req.messages, cfg.maxInputChars);
+    const temperature = req.temperature ?? 0.7;
+    const maxTokens = Math.min(cfg.maxOutputTokens, req.maxTokens ?? 2048);
+    const timeoutMs = req.timeoutMs ?? cfg.timeoutMs;
+    const requestType = req.requestType || 'stream';
+
+    if (process.env.AI_MOCK_MODE === 'true') {
+      const lastUser = sanitizedMessages.filter((m) => m.role === 'user').pop()?.content || '';
+      const content = `Deterministic grounded stream response for "${lastUser.slice(0, 120)}" [1].`;
+      yield content;
+      const inputTokens = approxTokens(sanitizedMessages.map((x) => x.content).join(' '));
+      const outputTokens = approxTokens(content);
+      const totalTokens = inputTokens + outputTokens;
+      await persistUsageLog({
+        userId: req.userId,
+        workspaceId: req.workspaceId,
+        provider: 'mock',
+        model: 'mock-deterministic-v1',
+        requestType,
+        latencyMs: 5,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        usageEstimated: true,
+        estimatedCost: 0,
+        status: 'success',
+      });
+      return {
+        content,
+        provider: 'mock',
+        model: 'mock-deterministic-v1',
+        latencyMs: 5,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        usageEstimated: true,
+        estimatedCost: 0,
+      };
     }
 
-    const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const candidates = await this.resolveOrderedProviders(req.provider);
+    if (candidates.length === 0) {
+      throw new TemporaryAIUnavailableError();
+    }
+
     const start = Date.now();
-    const geminiKey = getProviderKey('gemini', req.userKeys);
-    const groqKey = getProviderKey('groq', req.userKeys);
+    const errors: string[] = [];
 
-    if (providers[0] === 'gemini' && geminiKey) {
-      const model = req.model && req.model.startsWith('gemini') ? req.model : 'gemini-3.5-flash-lite';
-      const systemText = sanitizedMessages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-      const contents = sanitizedMessages
-        .filter((m) => m.role !== 'system')
-        .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    for (let idx = 0; idx < candidates.length; idx++) {
+      const candidate = candidates[idx];
+      const creds = getProviderCredentials(candidate.provider);
+      if (!creds.configured || !creds.apiKey) continue;
 
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const adapter = getAdapter(candidate.provider);
+      const model = this.selectModelForProvider(candidate.provider, candidate.selectedModel, req.model);
+      const attemptStart = Date.now();
 
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${geminiKey}`;
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
-            contents,
-            generationConfig: {
-              temperature: req.temperature ?? 0.7,
-              maxOutputTokens: req.maxTokens ?? 2048,
-            },
-          }),
-          signal: controller.signal,
-        });
+        let finalResult: AdapterCallResult;
 
-        if (!resp.ok || !resp.body) {
-          throw new Error(`Gemini stream HTTP ${resp.status}`);
-        }
+        if (adapter.stream) {
+          const gen = adapter.stream({
+            apiKey: creds.apiKey,
+            accountId: creds.accountId,
+            model,
+            messages: sanitizedMessages,
+            temperature,
+            maxTokens,
+            responseFormat: 'text',
+            timeoutMs,
+          });
 
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let fullText = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue;
-            const raw = line.slice(5).trim();
-            if (!raw || raw === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(raw);
-              const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) {
-                fullText += text;
-                yield text;
-              }
-            } catch {
-              // ignore partial JSON frames
+          let yieldedAny = false;
+          while (true) {
+            const next = await gen.next();
+            if (next.done) {
+              finalResult = next.value;
+              break;
             }
+            yieldedAny = true;
+            yield next.value;
           }
+          if (!yieldedAny && !finalResult.content) {
+            throw new Error(`Empty stream from ${candidate.provider}`);
+          }
+        } else {
+          // Non-streaming fallback adapter (e.g., Cloudflare Workers AI)
+          finalResult = await adapter.generate({
+            apiKey: creds.apiKey,
+            accountId: creds.accountId,
+            model,
+            messages: sanitizedMessages,
+            temperature,
+            maxTokens,
+            responseFormat: 'text',
+            timeoutMs,
+          });
+          yield finalResult.content;
         }
 
-        const latencyMs = Date.now() - start;
-        const inputTokens = approxTokens(sanitizedMessages.map((m) => m.content).join(' '));
-        const outputTokens = approxTokens(fullText);
-        const estimatedCost = estimateModelCost(model, inputTokens, outputTokens);
-
+        const latencyMs = Date.now() - attemptStart;
+        const estimatedCost = estimateModelCost(finalResult.model, finalResult.inputTokens, finalResult.outputTokens);
+        await ProviderHealthManager.recordSuccess(candidate.provider, finalResult.model, latencyMs);
         await persistUsageLog({
           userId: req.userId,
           workspaceId: req.workspaceId,
-          provider: 'gemini',
-          model,
+          provider: candidate.provider,
+          model: finalResult.model,
           requestType: req.requestType || 'stream',
           latencyMs,
-          inputTokens,
-          outputTokens,
-          totalTokens: inputTokens + outputTokens,
-          usageEstimated: true,
+          inputTokens: finalResult.inputTokens,
+          outputTokens: finalResult.outputTokens,
+          totalTokens: finalResult.totalTokens,
+          usageEstimated: finalResult.usageEstimated,
           estimatedCost,
           status: 'success',
         });
 
         return {
-          content: fullText,
-          provider: 'gemini',
-          model,
+          content: finalResult.content,
+          provider: candidate.provider,
+          model: finalResult.model,
           latencyMs,
-          inputTokens,
-          outputTokens,
-          totalTokens: inputTokens + outputTokens,
-          usageEstimated: true,
+          inputTokens: finalResult.inputTokens,
+          outputTokens: finalResult.outputTokens,
+          totalTokens: finalResult.totalTokens,
+          usageEstimated: finalResult.usageEstimated,
           estimatedCost,
         };
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    // Stream via Groq if primary is Groq
-    if (providers[0] === 'groq' && groqKey) {
-      const model = 'llama-3.3-70b-versatile';
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          messages: sanitizedMessages,
-          temperature: req.temperature ?? 0.7,
-          max_tokens: req.maxTokens ?? 2048,
-          stream: true,
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (resp.ok && resp.body) {
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let fullText = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue;
-            const raw = line.slice(5).trim();
-            if (!raw || raw === '[DONE]') continue;
-            try {
-              const delta = JSON.parse(raw)?.choices?.[0]?.delta?.content;
-              if (delta) {
-                fullText += delta;
-                yield delta;
-              }
-            } catch { /* ignore */ }
-          }
+      } catch (rawErr) {
+        const norm = classifyProviderError(candidate.provider, rawErr);
+        if (!norm.fallbackAllowed) {
+          const badReqErr = new Error(norm.message) as Error & { status?: number };
+          badReqErr.status = norm.statusCode || 400;
+          throw badReqErr;
         }
-        const latencyMs = Date.now() - start;
-        const inputTokens = approxTokens(sanitizedMessages.map((m) => m.content).join(' '));
-        const outputTokens = approxTokens(fullText);
-        const estimatedCost = estimateModelCost(model, inputTokens, outputTokens);
-        await persistUsageLog({
-          userId: req.userId,
-          workspaceId: req.workspaceId,
-          provider: 'groq',
+        await ProviderHealthManager.recordFailure({
+          provider: candidate.provider,
           model,
-          requestType: req.requestType || 'stream',
-          latencyMs,
-          inputTokens,
-          outputTokens,
-          totalTokens: inputTokens + outputTokens,
-          usageEstimated: true,
-          estimatedCost,
-          status: 'success',
+          status: norm.kind === 'rate_limit' ? 'rate_limited' : norm.kind === 'auth_error' ? 'auth_error' : 'degraded',
+          statusCode: norm.statusCode,
+          latencyMs: Date.now() - attemptStart,
+          errorMessage: norm.message,
+          cooldownMs: norm.kind === 'rate_limit' ? 30_000 : undefined,
+          isFallbackTrigger: idx + 1 < candidates.length,
         });
-        return {
-          content: fullText,
-          provider: 'groq',
-          model,
-          latencyMs,
-          inputTokens,
-          outputTokens,
-          totalTokens: inputTokens + outputTokens,
-          usageEstimated: true,
-          estimatedCost,
-        };
+        errors.push(`${candidate.provider}: ${norm.message}`);
       }
     }
 
-    const result = await this.generate({ ...req, requestType: req.requestType || 'stream' });
-    yield result.content;
-    return result;
+    await persistUsageLog({
+      userId: req.userId,
+      workspaceId: req.workspaceId,
+      provider: candidates[0]?.provider || 'none',
+      model: req.model || 'unknown',
+      requestType: req.requestType || 'stream',
+      latencyMs: Date.now() - start,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      usageEstimated: true,
+      estimatedCost: 0,
+      status: 'error',
+      errorMessage: errors.join(' | '),
+    });
+
+    throw new TemporaryAIUnavailableError(
+      'AI streaming service is temporarily unavailable across configured providers. Please try again shortly.'
+    );
   }
 }

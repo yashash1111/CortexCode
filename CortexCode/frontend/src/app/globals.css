@@ -1,31 +1,285 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0a0a0a;
-  --surface: #121212;
-  --surface-hover: #1a1a1a;
-  --border: #262626;
-  --border-subtle: #1e1e1e;
-  --foreground: #f5f5f5;
-  --foreground-secondary: #a1a1aa;
-  --foreground-muted: #71717a;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root,
+[data-theme="light"] {
+  /* 1. Background colors */
+  --bg-main: #F8FAFC;
+  --bg-secondary: #F1F5F9;
+  --bg-subtle: #E2E8F0;
+  --bg-overlay: rgba(15, 23, 42, 0.45);
+
+  /* 2. Surface and card colors */
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-hover: #F1F5F9;
+  --bg-active: #E0E7FF;
+
+  /* 3. Primary and secondary text */
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+
+  /* 4. Muted and disabled text */
+  --text-muted: #64748B;
+  --text-disabled: #94A3B8;
+  --text-inverse: #FFFFFF;
+
+  /* 5. Borders and dividers */
+  --border-default: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --border-subtle: #F1F5F9;
+
+  /* 6. Primary and secondary buttons */
+  --btn-primary-bg: #4F46E5;
+  --btn-primary-hover: #4338CA;
+  --btn-primary-text: #FFFFFF;
+  --btn-secondary-bg: #FFFFFF;
+  --btn-secondary-hover: #F1F5F9;
+  --btn-secondary-text: #0F172A;
+  --btn-secondary-border: #CBD5E1;
+
+  /* 7. Accent colors */
+  --accent-primary: #4F46E5;
+  --accent-primary-hover: #4338CA;
+  --accent-secondary: #0EA5E9;
+  --accent-soft: #EEF2FF;
+  --accent-border: #C7D2FE;
+
+  /* 8. Success colors */
+  --status-success: #15803D;
+  --status-success-bg: #DCFCE7;
+  --status-success-border: #86EFAC;
+
+  /* 9. Warning colors */
+  --status-warning: #B45309;
+  --status-warning-bg: #FEF3C7;
+  --status-warning-border: #FCD34D;
+
+  /* 10. Error and danger colors */
+  --status-error: #DC2626;
+  --status-error-bg: #FEE2E2;
+  --status-error-border: #FCA5A5;
+
+  /* 11. Information colors */
+  --status-info: #2563EB;
+  --status-info-bg: #DBEAFE;
+  --status-info-border: #93C5FD;
+
+  /* 12. Input and placeholder colors */
+  --input-bg: #FFFFFF;
+  --input-border: #CBD5E1;
+  --input-placeholder: #94A3B8;
+
+  /* 13. Focus and hover colors */
+  --focus-ring: #4F46E5;
+
+  /* 14. Sidebar and navigation colors */
+  --sidebar-bg: #FFFFFF;
+  --sidebar-border: #E2E8F0;
+  --sidebar-item-hover: #F1F5F9;
+  --sidebar-item-active: #EEF2FF;
+  --header-bg: rgba(248, 250, 252, 0.88);
+
+  /* 15. Modal and dropdown colors */
+  --modal-bg: #FFFFFF;
+  --modal-border: #E2E8F0;
+  --dropdown-bg: #FFFFFF;
+  --dropdown-border: #E2E8F0;
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 16px 32px -8px rgba(15, 23, 42, 0.14);
+
+  /* 16. Charts and data visualization colors */
+  --chart-grid: #E2E8F0;
+  --chart-axis: #64748B;
+  --chart-tooltip-bg: #FFFFFF;
+  --chart-tooltip-border: #CBD5E1;
+  --chart-series-1: #4F46E5;
+  --chart-series-2: #0EA5E9;
+  --chart-series-3: #15803D;
+  --chart-series-4: #B45309;
+
+  /* 17. Code editor colors */
+  --code-bg: #F8FAFC;
+  --code-header-bg: #F1F5F9;
+  --code-text: #0F172A;
+  --code-border: #E2E8F0;
+  --code-line-num: #94A3B8;
+  --code-keyword: #4338CA;
+  --code-string: #15803D;
+  --code-comment: #64748B;
+
+  /* 18. Scrollbar colors */
+  --scrollbar-thumb: #CBD5E1;
+  --scrollbar-thumb-hover: #94A3B8;
+
+  /* 19. Selection and tooltip colors */
+  --selection-bg: #C7D2FE;
+  --selection-text: #0F172A;
+  --tooltip-bg: #0F172A;
+  --tooltip-text: #F8FAFC;
+
+  /* Legacy aliases */
+  --background: var(--bg-main);
+  --surface: var(--bg-card);
+  --surface-hover: var(--bg-hover);
+  --border: var(--border-default);
+  --foreground: var(--text-primary);
+  --foreground-secondary: var(--text-secondary);
+  --foreground-muted: var(--text-muted);
+  --accent: var(--accent-primary);
+  --accent-hover: var(--accent-primary-hover);
+}
+
+[data-theme="dark"] {
+  /* 1. Background colors */
+  --bg-main: #0B1120;
+  --bg-secondary: #111827;
+  --bg-subtle: #1E293B;
+  --bg-overlay: rgba(2, 6, 23, 0.72);
+
+  /* 2. Surface and card colors */
+  --bg-card: #172033;
+  --bg-elevated: #1E293B;
+  --bg-hover: #1E293B;
+  --bg-active: rgba(129, 140, 248, 0.16);
+
+  /* 3. Primary and secondary text */
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+
+  /* 4. Muted and disabled text */
+  --text-muted: #94A3B8;
+  --text-disabled: #64748B;
+  --text-inverse: #0B1120;
+
+  /* 5. Borders and dividers */
+  --border-default: #334155;
+  --border-strong: #475569;
+  --border-subtle: #1E293B;
+
+  /* 6. Primary and secondary buttons */
+  --btn-primary-bg: #4F46E5;
+  --btn-primary-hover: #6366F1;
+  --btn-primary-text: #FFFFFF;
+  --btn-secondary-bg: #1E293B;
+  --btn-secondary-hover: #334155;
+  --btn-secondary-text: #F8FAFC;
+  --btn-secondary-border: #475569;
+
+  /* 7. Accent colors */
+  --accent-primary: #818CF8;
+  --accent-primary-hover: #A5B4FC;
+  --accent-secondary: #38BDF8;
+  --accent-soft: rgba(129, 140, 248, 0.14);
+  --accent-border: rgba(129, 140, 248, 0.35);
+
+  /* 8. Success colors */
+  --status-success: #4ADE80;
+  --status-success-bg: rgba(74, 222, 128, 0.12);
+  --status-success-border: rgba(74, 222, 128, 0.3);
+
+  /* 9. Warning colors */
+  --status-warning: #FBBF24;
+  --status-warning-bg: rgba(251, 191, 36, 0.12);
+  --status-warning-border: rgba(251, 191, 36, 0.3);
+
+  /* 10. Error and danger colors */
+  --status-error: #F87171;
+  --status-error-bg: rgba(248, 113, 113, 0.12);
+  --status-error-border: rgba(248, 113, 113, 0.3);
+
+  /* 11. Information colors */
+  --status-info: #60A5FA;
+  --status-info-bg: rgba(96, 165, 250, 0.12);
+  --status-info-border: rgba(96, 165, 250, 0.3);
+
+  /* 12. Input and placeholder colors */
+  --input-bg: #0F172A;
+  --input-border: #334155;
+  --input-placeholder: #64748B;
+
+  /* 13. Focus and hover colors */
+  --focus-ring: #818CF8;
+
+  /* 14. Sidebar and navigation colors */
+  --sidebar-bg: #0F172A;
+  --sidebar-border: #1E293B;
+  --sidebar-item-hover: #1E293B;
+  --sidebar-item-active: rgba(129, 140, 248, 0.15);
+  --header-bg: rgba(11, 17, 32, 0.85);
+
+  /* 15. Modal and dropdown colors */
+  --modal-bg: #172033;
+  --modal-border: #334155;
+  --dropdown-bg: #1E293B;
+  --dropdown-border: #334155;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 16px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 40px -10px rgba(0, 0, 0, 0.65);
+
+  /* 16. Charts and data visualization colors */
+  --chart-grid: #334155;
+  --chart-axis: #94A3B8;
+  --chart-tooltip-bg: #1E293B;
+  --chart-tooltip-border: #475569;
+  --chart-series-1: #818CF8;
+  --chart-series-2: #38BDF8;
+  --chart-series-3: #4ADE80;
+  --chart-series-4: #FBBF24;
+
+  /* 17. Code editor colors */
+  --code-bg: #0F172A;
+  --code-header-bg: #1E293B;
+  --code-text: #F8FAFC;
+  --code-border: #334155;
+  --code-line-num: #64748B;
+  --code-keyword: #A5B4FC;
+  --code-string: #4ADE80;
+  --code-comment: #94A3B8;
+
+  /* 18. Scrollbar colors */
+  --scrollbar-thumb: #334155;
+  --scrollbar-thumb-hover: #475569;
+
+  /* 19. Selection and tooltip colors */
+  --selection-bg: rgba(129, 140, 248, 0.3);
+  --selection-text: #F8FAFC;
+  --tooltip-bg: #F8FAFC;
+  --tooltip-text: #0F172A;
+
+  /* Legacy aliases */
+  --background: var(--bg-main);
+  --surface: var(--bg-card);
+  --surface-hover: var(--bg-hover);
+  --border: var(--border-default);
+  --foreground: var(--text-primary);
+  --foreground-secondary: var(--text-secondary);
+  --foreground-muted: var(--text-muted);
+  --accent: var(--accent-primary);
+  --accent-hover: var(--accent-primary-hover);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
-/* Custom Scrollbar - Professional & Minimal */
+::selection {
+  background-color: var(--selection-bg);
+  color: var(--selection-text);
+}
+
+/* Custom Scrollbar - Theme Aware */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
 /* Hide scrollbar utility */
 .scrollbar-none::-webkit-scrollbar { display: none; }
@@ -50,4 +304,150 @@ body {
 
 .animate-loading-bar {
   animation: loadingBar 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .animate-fade-in-up,
+  .animate-loading-bar {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   Light-mode compatibility layer for legacy hardcoded dark utility classes
+   so nested components remain crisp and readable in Light Mode.
+   ============================================================================ */
+[data-theme="light"] .bg-zinc-950,
+[data-theme="light"] .bg-zinc-950\/95,
+[data-theme="light"] .bg-zinc-950\/90,
+[data-theme="light"] .bg-zinc-950\/85,
+[data-theme="light"] .bg-zinc-950\/80,
+[data-theme="light"] .bg-zinc-950\/70,
+[data-theme="light"] .bg-zinc-950\/60,
+[data-theme="light"] .bg-zinc-950\/50,
+[data-theme="light"] .bg-zinc-950\/40,
+[data-theme="light"] .bg-zinc-950\/30,
+[data-theme="light"] .bg-\[\#0a0a0a\],
+[data-theme="light"] .bg-\[\#0b0b0b\],
+[data-theme="light"] .bg-\[\#0d0d0d\] {
+  background-color: var(--bg-main) !important;
+}
+
+[data-theme="light"] .bg-zinc-900,
+[data-theme="light"] .bg-zinc-900\/95,
+[data-theme="light"] .bg-zinc-900\/90,
+[data-theme="light"] .bg-zinc-900\/80,
+[data-theme="light"] .bg-zinc-900\/70,
+[data-theme="light"] .bg-zinc-900\/60,
+[data-theme="light"] .bg-zinc-900\/50,
+[data-theme="light"] .bg-zinc-900\/40,
+[data-theme="light"] .bg-zinc-900\/30,
+[data-theme="light"] .bg-zinc-900\/20,
+[data-theme="light"] .bg-\[\#111111\],
+[data-theme="light"] .bg-\[\#121212\],
+[data-theme="light"] .bg-\[\#141414\],
+[data-theme="light"] .bg-\[\#151515\],
+[data-theme="light"] .bg-\[\#171717\],
+[data-theme="light"] .bg-\[\#1a1a1a\],
+[data-theme="light"] .bg-\[\#1c1c1c\] {
+  background-color: var(--bg-card) !important;
+}
+
+[data-theme="light"] .bg-zinc-800,
+[data-theme="light"] .bg-zinc-800\/90,
+[data-theme="light"] .bg-zinc-800\/80,
+[data-theme="light"] .bg-zinc-800\/60,
+[data-theme="light"] .bg-zinc-800\/50,
+[data-theme="light"] .bg-\[\#202020\],
+[data-theme="light"] .bg-\[\#222\] {
+  background-color: var(--bg-secondary) !important;
+}
+
+[data-theme="light"] .bg-black,
+[data-theme="light"] .bg-black\/60,
+[data-theme="light"] .bg-black\/50,
+[data-theme="light"] .bg-black\/40,
+[data-theme="light"] .bg-black\/30 {
+  background-color: var(--bg-secondary) !important;
+}
+
+[data-theme="light"] .border-zinc-800,
+[data-theme="light"] .border-zinc-800\/80,
+[data-theme="light"] .border-zinc-700,
+[data-theme="light"] .border-zinc-700\/80,
+[data-theme="light"] .border-zinc-700\/60,
+[data-theme="light"] .border-\[\#262626\],
+[data-theme="light"] .border-white\/10,
+[data-theme="light"] .border-white\/15,
+[data-theme="light"] .border-white\/8,
+[data-theme="light"] .border-white\/5 {
+  border-color: var(--border-default) !important;
+}
+
+[data-theme="light"] .text-zinc-50,
+[data-theme="light"] .text-zinc-100,
+[data-theme="light"] .text-zinc-200,
+[data-theme="light"] .text-neutral-100,
+[data-theme="light"] .text-neutral-200 {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .text-zinc-300,
+[data-theme="light"] .text-neutral-300 {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="light"] .text-zinc-400,
+[data-theme="light"] .text-zinc-500,
+[data-theme="light"] .text-neutral-400,
+[data-theme="light"] .text-neutral-500 {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="light"] .placeholder-zinc-500::placeholder,
+[data-theme="light"] .placeholder-neutral-500::placeholder,
+[data-theme="light"] .placeholder-zinc-600::placeholder {
+  color: var(--input-placeholder) !important;
+}
+
+/* Ensure non-button text-white inside legacy dark surfaces adapts in light mode */
+[data-theme="light"] .bg-zinc-950 .text-white:not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-purple-"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-amber-"]):not([class*="bg-gradient-"]),
+[data-theme="light"] .bg-zinc-900 .text-white:not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-purple-"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-amber-"]):not([class*="bg-gradient-"]),
+[data-theme="light"] .bg-\[\#0a0a0a\] .text-white:not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-purple-"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-amber-"]):not([class*="bg-gradient-"]),
+[data-theme="light"] .bg-\[\#121212\] .text-white:not([class*="bg-blue-"]):not([class*="bg-indigo-"]):not([class*="bg-purple-"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-amber-"]):not([class*="bg-gradient-"]) {
+  color: var(--text-primary);
+}
+
+/* WCAG AA readable status & accent text in Light Mode */
+[data-theme="light"] .text-emerald-300,
+[data-theme="light"] .text-emerald-400 {
+  color: var(--status-success) !important;
+}
+
+[data-theme="light"] .text-red-200,
+[data-theme="light"] .text-red-300,
+[data-theme="light"] .text-red-400 {
+  color: var(--status-error) !important;
+}
+
+[data-theme="light"] .text-amber-200,
+[data-theme="light"] .text-amber-300,
+[data-theme="light"] .text-amber-400 {
+  color: var(--status-warning) !important;
+}
+
+[data-theme="light"] .text-blue-200,
+[data-theme="light"] .text-blue-300,
+[data-theme="light"] .text-blue-400 {
+  color: var(--status-info) !important;
+}
+
+[data-theme="light"] .text-purple-200,
+[data-theme="light"] .text-purple-300,
+[data-theme="light"] .text-purple-400,
+[data-theme="light"] .text-violet-300,
+[data-theme="light"] .text-violet-400 {
+  color: var(--accent-primary) !important;
 }

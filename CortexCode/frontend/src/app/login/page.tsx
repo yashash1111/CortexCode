@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Zap, Lock, Mail, GitBranch } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
@@ -187,17 +188,15 @@ function LoginContent() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans overflow-hidden">
       <BackgroundVideo variant="home" />
 
-      {/* Dark gradient overlay for video integration */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70 pointer-events-none" />
-
-      {/* Back Link */}
-      <div className="absolute top-6 left-6 z-20">
+      {/* Back Link & Theme Switcher */}
+      <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/"
-          className="flex items-center gap-2 px-4 py-2 bg-black/60 hover:bg-black/80 border border-white/15 rounded-full text-xs font-bold text-zinc-300 hover:text-white transition-all backdrop-blur-md"
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)]/90 hover:bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-full text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all backdrop-blur-md"
         >
           <ArrowLeft size={14} /> Home
         </Link>
+        <ThemeSwitcher />
       </div>
 
       {/* Brand Header — above the card */}
@@ -206,23 +205,23 @@ function LoginContent() {
           <img
             src="/logo.jpg"
             alt="CortexCode"
-            className="w-11 h-11 rounded-xl border border-white/20 shadow-[0_4px_20px_rgba(0,0,0,0.8)] object-cover"
+            className="w-11 h-11 rounded-xl border border-[var(--border-default)] shadow-[var(--shadow-sm)] object-cover"
           />
-          <h1 className="text-4xl font-black text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
+          <h1 className="text-4xl font-black text-[var(--text-primary)]">
             CortexCode
           </h1>
         </div>
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">
           AI Developer Workspace
         </p>
       </div>
 
       {/* Glass Login Card */}
-      <div className="w-full max-w-md bg-zinc-950/85 backdrop-blur-2xl border border-white/15 rounded-3xl p-8 shadow-[0_20px_80px_rgba(0,0,0,0.9)] z-10 animate-fade-in-up">
+      <div className="w-full max-w-md bg-[var(--bg-card)]/95 backdrop-blur-2xl border border-[var(--border-default)] rounded-3xl p-8 shadow-[var(--shadow-lg)] z-10 animate-fade-in-up">
 
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-black text-white mb-1">Welcome back</h2>
-          <p className="text-zinc-400 text-xs font-medium">Sign in to your intelligent coding workspace</p>
+          <h2 className="text-2xl font-black text-[var(--text-primary)] mb-1">Welcome back</h2>
+          <p className="text-[var(--text-muted)] text-xs font-medium">Sign in to your intelligent coding workspace</p>
         </div>
 
         {error && (

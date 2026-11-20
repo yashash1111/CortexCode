@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Code2, Lock, CheckCircle2 } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useToast } from '@/providers/ToastProvider';
 
 function ResetPasswordForm() {
@@ -151,14 +152,15 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans">
       <BackgroundVideo />
 
-      {/* Floating Header Back Link */}
-      <div className="absolute top-6 left-6 z-20">
+      {/* Floating Header Back Link & Theme Switcher */}
+      <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/"
-          className="flex items-center gap-2 px-4 py-2 bg-black/40 hover:bg-black/60 border border-white/10 rounded-full text-xs font-bold text-zinc-300 hover:text-white transition-all backdrop-blur-md"
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)]/90 hover:bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-full text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all backdrop-blur-md"
         >
           <ArrowLeft size={14} /> Back to Home
         </Link>
+        <ThemeSwitcher />
       </div>
 
       <Suspense fallback={<div className="text-sm text-zinc-400">Loading reset panel...</div>}>

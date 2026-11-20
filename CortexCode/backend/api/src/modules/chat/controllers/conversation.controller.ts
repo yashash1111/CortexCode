@@ -60,21 +60,16 @@ export class ConversationController {
   static async sendMessage(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { content, attachments, mode, userKeys: bodyKeys } = req.body;
+      const { content, attachments, mode } = req.body;
       if (!content || !content.trim()) {
         return res.status(400).json({ success: false, error: { message: 'Message content required' } });
       }
 
-      const userKeys = {
-        gemini: (req.headers['x-gemini-api-key'] as string) || bodyKeys?.gemini,
-        openai: (req.headers['x-openai-api-key'] as string) || bodyKeys?.openai,
-        anthropic: (req.headers['x-anthropic-api-key'] as string) || bodyKeys?.anthropic
-      };
-
-      const result = await ConversationService.addMessage(id, 'user', content, attachments, mode || 'chat', userKeys);
+      const result = await ConversationService.addMessage(id, 'user', content, attachments, mode || 'chat');
       res.json({ success: true, data: result });
     } catch (err: any) {
-      res.status(500).json({ success: false, error: { message: err.message } });
+      const status = typeof err?.status === 'number' ? err.status : 500;
+      res.status(status).json({ success: false, error: { message: err?.message || 'Failed to send message' } });
     }
   }
 }
