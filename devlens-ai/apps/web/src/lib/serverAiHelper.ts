@@ -7,16 +7,10 @@ export interface UserApiKeys {
   anthropic?: string;
 }
 
-// Built-in working provider keys decoded at runtime
-const DEFAULT_GEMINI_KEY = Buffer.from('QVEuQWI4Uk42SjVBcnZMM1M3YWFhWl83RUxrSmkzQ1RWSk9kS3VFVUQtdUNTT3VxY0dVTFE=', 'base64').toString('utf-8');
-const DEFAULT_CEREBRAS_KEY = Buffer.from('Y3NrLWZ5bndkcnl0anJyd2ZkanB3MnB2MjYzNXltZHc1ODRqdnllZXJreHh2ajNyM2RwZQ==', 'base64').toString('utf-8');
-
 const GEMINI_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-flash-latest',
-  'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
-  'gemini-2.5-flash'
+  'gemini-3.5-flash',
+  'gemini-flash-latest'
 ];
 
 const CEREBRAS_MODELS = [
@@ -39,22 +33,14 @@ export async function generateAiResponseServer(
   mode: string = 'chat',
   userKeys?: UserApiKeys
 ): Promise<string> {
-  // Resolve keys with automatic built-in defaults
   const geminiKey =
     userKeys?.gemini ||
     process.env.GEMINI_API_KEY ||
-    process.env.GEMINIAPIKEY ||
-    process.env.GOOGLE_API_KEY ||
-    process.env.GOOGLEAPIKEY ||
-    process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
-    DEFAULT_GEMINI_KEY;
+    process.env.GOOGLE_API_KEY;
 
   const cerebrasKey =
     userKeys?.cerebras ||
-    process.env.CEREBRAS_API_KEY ||
-    process.env.CEREBRASAPIKEY ||
-    process.env.NEXT_PUBLIC_CEREBRAS_API_KEY ||
-    DEFAULT_CEREBRAS_KEY;
+    process.env.CEREBRAS_API_KEY;
 
   const openaiKey =
     userKeys?.openai ||

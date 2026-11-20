@@ -8,8 +8,6 @@ const CEREBRAS_CANDIDATE_MODELS = [
 ];
 
 export class CerebrasProvider {
-  static DEFAULT_CEREBRAS_KEY = 'csk-fynwdrytjrrwfdjpw2pv2635ymdw584jvyeerkxxvj3r3dpe';
-
   static async generateResponse(
     prompt: string,
     history: any[] = [],
@@ -17,7 +15,7 @@ export class CerebrasProvider {
     systemPrompt: string = CORTEXCODE_SYSTEM_PROMPT,
     overrideApiKey?: string
   ): Promise<string> {
-    const apiKey = overrideApiKey || process.env.CEREBRAS_API_KEY || this.DEFAULT_CEREBRAS_KEY;
+    const apiKey = overrideApiKey || process.env.CEREBRAS_API_KEY;
     if (!apiKey || apiKey === 'dummy') {
       throw new Error('CEREBRAS_API_KEY is not configured');
     }

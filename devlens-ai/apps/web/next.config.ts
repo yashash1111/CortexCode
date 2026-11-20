@@ -23,6 +23,26 @@ const nextConfig: NextConfig = {
         source: '/api/upload/:path*',
         destination: `${backendUrl}/api/upload/:path*`,
       },
+      {
+        source: '/api/jobs/:path*',
+        destination: `${backendUrl}/api/jobs/:path*`,
+      },
+      {
+        source: '/api/docs/:path*',
+        destination: `${backendUrl}/api/docs/:path*`,
+      },
+      {
+        source: '/api/github/:path*',
+        destination: `${backendUrl}/api/github/:path*`,
+      },
+      {
+        source: '/api/github-intel/:path*',
+        destination: `${backendUrl}/api/github-intel/:path*`,
+      },
+      {
+        source: '/api/backend-health',
+        destination: `${backendUrl}/health`,
+      },
     ];
   },
 };

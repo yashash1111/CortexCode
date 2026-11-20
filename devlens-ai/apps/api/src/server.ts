@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app from './app';
 import './jobs/workers/indexing.worker'; 
 import './jobs/workers/pr_review.worker'; 
+import './jobs/workers/doc_ingestion.worker'; 
 
 const PORT = process.env.PORT || 3001;
 

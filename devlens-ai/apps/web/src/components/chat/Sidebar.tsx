@@ -154,15 +154,6 @@ export default function Sidebar({
             {!isCollapsed && <span>New Chat</span>}
           </button>
 
-          {/* Project Brain Link */}
-          <Link
-            href="/workspace/brain"
-            className={`w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 hover:border-blue-400/50 text-blue-300 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-all mb-3 shrink-0 ${isCollapsed ? 'px-0' : 'px-4'}`}
-          >
-            <span className="shrink-0">🧠</span>
-            {!isCollapsed && <span>Project Brain</span>}
-          </Link>
-
           {/* Search Conversations Input */}
           {!isCollapsed && (
             <div className="relative mb-4 shrink-0">

@@ -1,64 +1,68 @@
 import { Request, Response } from 'express';
+import { AIGateway, GatewayMessage } from '../services/ai/aiGateway';
 import { AIService } from '../services/ai/aiService';
 
-// Max conversation turns for the free demo (no auth)
 const DEMO_MAX_TURNS = 15;
 
 export class DemoChatController {
-  /**
-   * Public demo chat endpoint — standard JSON response.
-   */
   static async chat(req: Request, res: Response) {
     try {
-      const { message, history = [], userKeys = {}, mode = 'chat' } = req.body;
+      const { message, history = [], userKeys = {}, mode = 'chat', model } = req.body;
 
       if (!message || typeof message !== 'string' || message.trim() === '') {
         return res.status(400).json({
           success: false,
-          error: { message: 'Message is required.' }
+          error: { message: 'Message is required.' },
         });
       }
 
       if (Array.isArray(history) && history.length > DEMO_MAX_TURNS * 2) {
         return res.status(400).json({
           success: false,
-          error: { message: 'Demo conversation limit reached. Sign up for unlimited conversations.' }
+          error: { message: 'Demo conversation limit reached. Sign up for unlimited conversations.' },
         });
       }
 
-      const windowedHistory = Array.isArray(history)
+      const windowedHistory: GatewayMessage[] = Array.isArray(history)
         ? history
             .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
             .slice(-12)
+            .map((m: any) => ({ role: m.role, content: m.content }))
         : [];
 
-      const response = await AIService.generateResponse(
-        message.trim(),
-        windowedHistory,
-        'gpt-4o-mini',
-        mode,
-        userKeys
-      );
+      const systemPrompt = AIService.buildSystemInstructions(mode, message.trim());
+      const result = await AIGateway.generate({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...windowedHistory,
+          { role: 'user', content: message.trim() },
+        ],
+        model,
+        userKeys,
+        requestType: `demo_${mode}`,
+      });
 
       return res.json({
         success: true,
-        data: { content: response }
+        data: {
+          content: result.content,
+          provider: result.provider,
+          model: result.model,
+          latencyMs: result.latencyMs,
+        },
       });
     } catch (err: any) {
       console.error('[DemoChatController] Error:', err.message);
       return res.status(500).json({
         success: false,
-        error: { message: "I couldn't generate a response right now. Please try again." }
+        error: { message: "I couldn't generate a response right now. Please try again." },
       });
     }
   }
 
-  /**
-   * SSE Stream Endpoint — Word-by-word streaming response like Real ChatGPT / Gemini.
-   */
   static async stream(req: Request, res: Response) {
     try {
-      const { message, history = [], userKeys = {}, mode = 'chat' } = req.body;
+      const { message, history = [], userKeys = {}, mode = 'chat', model } = req.body;
 
       if (!message || typeof message !== 'string' || message.trim() === '') {
         return res.status(400).json({ success: false, error: { message: 'Message is required.' } });
@@ -68,26 +72,25 @@ export class DemoChatController {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      const windowedHistory = Array.isArray(history)
+      const windowedHistory: GatewayMessage[] = Array.isArray(history)
         ? history
             .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
             .slice(-12)
+            .map((m: any) => ({ role: m.role, content: m.content }))
         : [];
 
-      const fullResponse = await AIService.generateResponse(
-        message.trim(),
-        windowedHistory,
-        'gpt-4o-mini',
-        mode,
-        userKeys
-      );
-
-      // Stream words smoothly with realistic typing effect
-      const words = fullResponse.split(' ');
-      for (let i = 0; i < words.length; i++) {
-        const wordChunk = (i === 0 ? '' : ' ') + words[i];
-        res.write(`data: ${JSON.stringify({ content: wordChunk })}\n\n`);
-        await new Promise(resolve => setTimeout(resolve, 12));
+      const systemPrompt = AIService.buildSystemInstructions(mode, message.trim());
+      for await (const chunk of AIGateway.stream({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...windowedHistory,
+          { role: 'user', content: message.trim() },
+        ],
+        model,
+        userKeys,
+        requestType: `demo_stream_${mode}`,
+      })) {
+        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
       }
 
       res.write('data: [DONE]\n\n');

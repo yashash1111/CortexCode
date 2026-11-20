@@ -1,46 +1,44 @@
 import { Worker, Job } from 'bullmq';
 import { connection } from '../../config/redis';
 import prisma from '../../config/prisma';
-import { AIClient } from '../../services/ai/ai.client';
-import { GitHubClient } from '../../services/github/github.client';
+import { PRReviewService } from '../../services/github/prReviewService';
 
-let worker: any = null;
-try {
-  worker = new Worker('pr-review', async (job: Job) => {
+export const prReviewWorker = new Worker(
+  'pr-review',
+  async (job: Job) => {
     const { repositoryId, prNumber } = job.data;
 
     try {
-      const repo = await prisma.repository.findUnique({ where: { id: repositoryId }, include: { user: { include: { githubAccount: true } } } });
-      if (!repo || !repo.user.githubAccount) throw new Error('Repository or GitHub account not found');
-
-      const token = repo.user.githubAccount.accessTokenEncrypted;
-      const diff = await GitHubClient.getPullRequestDiff(token, repo.owner, repo.name, prNumber);
-      const context = `Diff:\n${diff}`;
-
-      const prompt = [
-        { role: 'system', content: 'You are an AI code reviewer. Review the following PR diff for correctness, security, and performance.' },
-        { role: 'user', content: context }
-      ];
-
-      const aiResponse = await AIClient.chat(prompt);
-
-      await prisma.pullRequestReview.create({
-        data: {
-          pullRequestId: 'mock-pr-id',
-          status: 'completed',
-          summary: aiResponse.content
-        }
+      const repo = await prisma.repository.findUnique({
+        where: { id: repositoryId },
       });
+      if (!repo) {
+        throw new Error(`Repository ${repositoryId} not found`);
+      }
 
+      let workspaceId = repo.workspaceId;
+      if (!workspaceId) {
+        const ws = await prisma.workspace.create({
+          data: { userId: repo.userId, name: repo.name },
+        });
+        await prisma.repository.update({ where: { id: repo.id }, data: { workspaceId: ws.id } });
+        workspaceId = ws.id;
+      }
+
+      return await PRReviewService.runReview({
+        userId: repo.userId,
+        workspaceId,
+        repositoryId: repo.id,
+        prNumber: Number(prNumber),
+      });
     } catch (error: any) {
-      console.error('PR Review failed:', error);
+      console.error('[PRReviewWorker] PR Review failed:', error.message);
       throw error;
     }
-  }, { connection });
+  },
+  { connection, concurrency: 2 }
+);
 
-  worker.on('error', () => {});
-} catch (e) {
-  // Silent worker initialization when running standalone without redis
-}
-
-export const prReviewWorker = worker;
+prReviewWorker.on('error', (err) => {
+  console.error('[PRReviewWorker] Worker error:', err.message);
+});

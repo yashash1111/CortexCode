@@ -30,3 +30,7 @@ coverage
 .DS_Store
 .vscode
 .idea
+
+# Uploads & Test Caches
+uploads/
+.pytest_cache/

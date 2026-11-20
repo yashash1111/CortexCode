@@ -4,5 +4,8 @@ pydantic==2.6.1
 pydantic-settings==2.1.0
 httpx==0.26.0
 python-dotenv==1.0.1
+pymupdf>=1.24.0
+tree-sitter>=0.24.0
+tree-sitter-language-pack>=1.0.0
 # Placeholder for SDKs (e.g., openai, anthropic)
 openai==1.12.0

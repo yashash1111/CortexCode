@@ -33,6 +33,11 @@ model User {
   auditLogs          AuditLog[]
   securityEvents     SecurityEvent[]
   assessmentSessions AssessmentSession[]
+  workspaces         Workspace[]
+  documents          Document[]
+  ingestionJobs      IngestionJob[]
+  usageLogs          UsageLog[]
+  evalRuns           EvalRun[]
 }
 
 model RefreshToken {
@@ -99,6 +104,7 @@ model TeamRepository {
 model Repository {
   id             String    @id @default(uuid())
   userId         String
+  workspaceId    String?
   githubId       String    @unique
   name           String
   fullName       String
@@ -115,6 +121,7 @@ model Repository {
   updatedAt      DateTime  @updatedAt
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace      Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   files          RepositoryFile[]
   activityLogs   ActivityLog[]
   codeChunks     CodeChunk[]
@@ -132,6 +139,7 @@ model Repository {
   auditLogs      AuditLog[]
   notes          RepositoryNote[]
   memories       Memory[]
+  graphEdges     CodeGraphEdge[]
 }
 
 model RepositoryFile {
@@ -144,6 +152,9 @@ model RepositoryFile {
   size         Int
   lineCount    Int?
   content      String?  @db.Text
+  contentHash  String?
+  imports      Json?
+  symbols      Json?
   isBinary     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -191,14 +202,19 @@ model CodeChunk {
 
 model Conversation {
   id           String   @id @default(uuid())
-  repositoryId String
+  repositoryId String?
+  workspaceId  String?
+  moduleType   String   @default("repo") // "repo" | "doc"
   userId       String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repository Repository? @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  workspace  Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages   Message[]
+
+  @@index([workspaceId, moduleType])
 }
 
 model Message {
@@ -291,16 +307,22 @@ model PullRequest {
 }
 
 model PullRequestReview {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   pullRequestId String
+  workspaceId   String?
+  prUrl         String?
   status        String
-  summary       String?  @db.Text
+  summary       String?   @db.Text
+  diffContent   String?   @db.Text
+  changedFiles  Json?
   score         Int?
   model         String?
-  createdAt     DateTime @default(now())
+  error         String?   @db.Text
+  createdAt     DateTime  @default(now())
   completedAt   DateTime?
 
-  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest     @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  workspace   Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   findings    ReviewFinding[]
 }
 
@@ -308,6 +330,7 @@ model ReviewFinding {
   id             String   @id @default(uuid())
   reviewId       String
   filePath       String
+  lineNumber     Int?
   startLine      Int?
   endLine        Int?
   severity       String
@@ -315,6 +338,8 @@ model ReviewFinding {
   title          String
   description    String   @db.Text
   recommendation String?  @db.Text
+  suggestedFix   String?  @db.Text
+  status         String   @default("open") // open, dismissed, resolved, approved
   confidence     Float?
 
   review PullRequestReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
@@ -632,4 +657,195 @@ model AssessmentResult {
   createdAt                 DateTime  @default(now())
 
   session AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+
+// ============================================================================
+// CORTEXCODE PHASE 1 UNIFIED DATA ARCHITECTURE
+// ============================================================================
+
+model Workspace {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?  @db.Text
+  slug        String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents          Document[]
+  repositories       Repository[]
+  ingestionJobs      IngestionJob[]
+  knowledgeChunks    KnowledgeChunk[]
+  pullRequestReviews PullRequestReview[]
+  evalRuns           EvalRun[]
+  usageLogs          UsageLog[]
+  conversations      Conversation[]
+
+  @@index([userId])
+}
+
+model Document {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  userId        String
+  title         String
+  fileName      String
+  mimeType      String
+  size          Int
+  sourcePath    String
+  content       String?   @db.Text
+  checksum      String?
+  status        String    @default("PENDING") // PENDING, PROCESSING, INDEXED, FAILED
+  chunkCount    Int       @default(0)
+  lastIndexedAt DateTime?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model IngestionJob {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String
+  moduleType  String    // "doc" | "repo"
+  sourceId    String?
+  bullJobId   String?
+  dedupeKey   String?
+  status      String    @default("queued") // queued, processing, completed, failed
+  progress    Int       @default(0)
+  total       Int       @default(0)
+  processed   Int       @default(0)
+  attempts    Int       @default(0)
+  error       String?   @db.Text
+  metadata    Json?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledgeChunks KnowledgeChunk[]
+
+  @@index([workspaceId, status])
+  @@index([dedupeKey, status])
+  @@index([userId])
+}
+
+model KnowledgeChunk {
+  id          String                       @id @default(uuid())
+  workspaceId String
+  jobId       String
+  moduleType  String                       // "doc" | "repo"
+  sourcePath  String
+  metadata    Json?
+  content     String                       @db.Text
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime                     @default(now())
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  job       IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, moduleType])
+  @@index([jobId])
+  @@index([sourcePath])
+}
+
+model EvalRun {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String
+  moduleType  String    // "doc" | "repo" | "pr"
+  name        String
+  status      String    @default("queued") // queued, running, completed, failed
+  metrics     Json?
+  datasetSize Int       @default(0)
+  passedCount Int       @default(0)
+  error       String?   @db.Text
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cases     EvalCaseResult[]
+
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model EvalCaseResult {
+  id                 String   @id @default(uuid())
+  evalRunId          String
+  question           String   @db.Text
+  expectedSource     String
+  groundTruth        String   @db.Text
+  actualAnswer       String   @db.Text
+  retrievedSources   Json
+  hitRate            Float    @default(0)
+  reciprocalRank     Float    @default(0)
+  contextRelevance   Float    @default(0)
+  answerFaithfulness Float    @default(0)
+  citationPrecision  Float    @default(0)
+  latencyMs          Int      @default(0)
+  reasoning          String?  @db.Text
+  createdAt          DateTime @default(now())
+
+  evalRun EvalRun @relation(fields: [evalRunId], references: [id], onDelete: Cascade)
+
+  @@index([evalRunId])
+}
+
+model UsageLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  workspaceId   String?
+  provider      String
+  model         String
+  requestType   String   // chat, stream, json, embed, pr_review
+  latencyMs     Int
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  totalTokens   Int      @default(0)
+  estimatedCost Float    @default(0)
+  status        String   @default("success") // success, error
+  errorMessage  String?  @db.Text
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([createdAt])
+}
+
+
+model CodeGraphEdge {
+  id           String   @id @default(uuid())
+  repositoryId String
+  workspaceId  String?
+  sourceFile   String
+  sourceSymbol String?
+  targetFile   String
+  targetSymbol String?
+  edgeType     String   // import, call, route, model
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([repositoryId])
+  @@index([workspaceId])
+  @@index([sourceFile])
 }

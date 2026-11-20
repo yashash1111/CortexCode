@@ -1,18 +1,13 @@
 import prisma from '../../config/prisma';
 import { GitHubClient } from './github.client';
+import { encryptToken, decryptToken } from '../../utils/crypto';
 
 export class GitHubService {
   static async processCallback(userId: string, code: string) {
-    // Exchange code for token
     const token = await GitHubClient.exchangeCodeForToken(code);
-    
-    // Get user info
     const githubUser = await GitHubClient.getAuthenticatedUser(token);
+    const accessTokenEncrypted = encryptToken(token);
 
-    // Encrypt token (simplified for phase 1 mock, should use real encryption)
-    const accessTokenEncrypted = Buffer.from(token).toString('base64');
-
-    // Store or update github account
     const account = await prisma.gitHubAccount.upsert({
       where: { userId },
       update: {
@@ -27,22 +22,39 @@ export class GitHubService {
         username: githubUser.login,
         accessTokenEncrypted,
         avatarUrl: githubUser.avatar_url,
-      }
+      },
+      select: {
+        id: true,
+        userId: true,
+        githubUserId: true,
+        username: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return account;
   }
 
   static async getAccount(userId: string) {
-    const account = await prisma.gitHubAccount.findUnique({
-      where: { userId }
+    return prisma.gitHubAccount.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        userId: true,
+        githubUserId: true,
+        username: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
-    return account;
   }
 
   static async disconnect(userId: string) {
     await prisma.gitHubAccount.delete({
-      where: { userId }
+      where: { userId },
     });
   }
 
@@ -50,9 +62,7 @@ export class GitHubService {
     const account = await prisma.gitHubAccount.findUnique({ where: { userId } });
     if (!account) throw new Error('GitHub not connected');
 
-    // Decrypt token (simplified)
-    const token = Buffer.from(account.accessTokenEncrypted, 'base64').toString('ascii');
-    
+    const token = decryptToken(account.accessTokenEncrypted);
     return GitHubClient.getRepositories(token);
   }
 }

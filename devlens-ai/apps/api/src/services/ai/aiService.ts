@@ -1,9 +1,6 @@
-import { CerebrasProvider } from './providers/cerebrasProvider';
-import { OpenAIProvider } from './providers/openaiProvider';
-import { GeminiProvider } from './providers/geminiProvider';
-import { ClaudeProvider } from './providers/claudeProvider';
 import { FallbackProvider } from './providers/fallbackProvider';
 import { getModeSystemInstructions } from './modePrompts';
+import { AIGateway, GatewayMessage } from './aiGateway';
 
 export const CORTEXCODE_SYSTEM_PROMPT = `You are CortexCode AI — a senior AI coding-platform architect, software engineer, LLM integration engineer, compiler-aware developer, debugger, code reviewer, and technical educator.
 
@@ -62,85 +59,37 @@ Do NOT default to JavaScript under any circumstances.`;
   static async generateResponse(
     prompt: string,
     history: any[] = [],
-    modelName: string = 'gemini-3.6-flash',
+    modelName: string = 'gemini-3.5-flash-lite',
     mode: string = 'chat',
-    userKeys?: UserApiKeys
+    userKeys?: UserApiKeys,
+    context?: { userId?: string; workspaceId?: string }
   ): Promise<string> {
-    const providerEnv = (process.env.AI_PROVIDER || 'auto').toLowerCase();
     const systemPrompt = AIService.buildSystemInstructions(mode, prompt);
+    const windowedHistory: GatewayMessage[] = Array.isArray(history)
+      ? history
+          .slice(-12)
+          .filter((m) => m && typeof m.content === 'string')
+          .map((m) => ({
+            role: m.role === 'assistant' || m.role === 'model' ? 'assistant' : 'user',
+            content: m.content,
+          }))
+      : [];
 
-    // Limit history window to last 12 messages
-    const windowedHistory = Array.isArray(history) ? history.slice(-12) : [];
+    const messages: GatewayMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...windowedHistory,
+      { role: 'user', content: prompt },
+    ];
 
-    const cerebrasKey = userKeys?.cerebras || process.env.CEREBRAS_API_KEY || CerebrasProvider.DEFAULT_CEREBRAS_KEY;
-    const geminiKey = userKeys?.gemini || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    const openaiKey = userKeys?.openai || process.env.OPENAI_API_KEY;
-    const anthropicKey = userKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
+    const result = await AIGateway.generate({
+      messages,
+      model: modelName,
+      userKeys,
+      userId: context?.userId,
+      workspaceId: context?.workspaceId,
+      requestType: mode,
+    });
 
-    // Safe Server-Side Request Logging
-    const detectedLang = FallbackProvider.extractLanguage(prompt);
-    console.log(`[AI REQUEST] mode=${mode} | model=${modelName} | detectedLanguage=${detectedLang || 'none'} | userMessageLength=${prompt.length}`);
-
-    // 1. Attempt Gemini Provider FIRST (Primary Active Provider with Verified Working API Key)
-    if (
-      (providerEnv === 'gemini' || providerEnv === 'auto') &&
-      geminiKey &&
-      geminiKey !== 'dummy'
-    ) {
-      try {
-        const result = await GeminiProvider.generateResponse(prompt, windowedHistory, systemPrompt, geminiKey, modelName);
-        console.log(`[AI RESPONSE] provider=gemini | model=${modelName} | success=true | responseLength=${result.length}`);
-        return result;
-      } catch (err: any) {
-        console.warn(`[AIService] Gemini Provider failed: ${err.message}. Trying next provider...`);
-      }
-    }
-
-    // 2. Attempt Cerebras Provider (High Performance Inference Engine)
-    if (
-      (providerEnv === 'cerebras' || providerEnv === 'auto') &&
-      cerebrasKey &&
-      cerebrasKey !== 'dummy'
-    ) {
-      try {
-        const result = await CerebrasProvider.generateResponse(prompt, windowedHistory, modelName, systemPrompt, cerebrasKey);
-        console.log(`[AI RESPONSE] provider=cerebras | model=${modelName} | success=true | responseLength=${result.length}`);
-        return result;
-      } catch (err: any) {
-        console.warn(`[AIService] Cerebras Provider failed: ${err.message}. Trying next provider...`);
-      }
-    }
-
-    // 3. Attempt OpenAI Provider
-    if (
-      (providerEnv === 'openai' || providerEnv === 'auto') &&
-      openaiKey &&
-      openaiKey !== 'dummy'
-    ) {
-      try {
-        const result = await OpenAIProvider.generateResponse(prompt, windowedHistory, modelName, systemPrompt, openaiKey);
-        console.log(`[AI RESPONSE] provider=openai | model=${modelName} | success=true | responseLength=${result.length}`);
-        return result;
-      } catch (err: any) {
-        console.warn(`[AIService] OpenAI Provider failed: ${err.message}. Trying next provider...`);
-      }
-    }
-
-    // 4. Attempt Claude Provider
-    if (
-      (providerEnv === 'claude' || providerEnv === 'anthropic' || providerEnv === 'auto') &&
-      anthropicKey &&
-      anthropicKey !== 'dummy'
-    ) {
-      try {
-        const result = await ClaudeProvider.generateResponse(prompt, windowedHistory, systemPrompt, anthropicKey);
-        console.log(`[AI RESPONSE] provider=claude | model=${modelName} | success=true | responseLength=${result.length}`);
-        return result;
-      } catch (err: any) {
-        console.warn(`[AIService] Claude Provider failed: ${err.message}.`);
-      }
-    }
-
-    throw new Error('AI API Error: All configured API providers failed to respond. Please check your API keys.');
+    return result.content;
   }
 }
