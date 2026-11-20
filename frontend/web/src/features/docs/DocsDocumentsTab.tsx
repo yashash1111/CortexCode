@@ -105,8 +105,9 @@ export function DocsDocumentsTab({
       if (job) setActiveJob(job);
       setUploadSuccess(`Uploaded "${file.name}". Background ingestion started.`);
       await onRefresh();
-    } catch (err: any) {
-      setUploadError(err?.response?.data?.error?.message || err?.message || 'Upload failed.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } }; message?: string })?.response?.data?.error?.message || (err instanceof Error ? err.message : 'Upload failed.');
+      setUploadError(msg);
     } finally {
       setUploading(false);
     }
@@ -120,8 +121,9 @@ export function DocsDocumentsTab({
         setActiveJob(res.data.data.job);
       }
       await onRefresh();
-    } catch (err: any) {
-      setUploadError(err?.response?.data?.error?.message || 'Failed to trigger re-indexing.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to trigger re-indexing.';
+      setUploadError(msg);
     }
   };
 
@@ -130,8 +132,9 @@ export function DocsDocumentsTab({
     try {
       await apiClient.delete(`/api/docs/${doc.id}`);
       await onRefresh();
-    } catch (err: any) {
-      setUploadError(err?.response?.data?.error?.message || 'Failed to delete document.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to delete document.';
+      setUploadError(msg);
     }
   };
 

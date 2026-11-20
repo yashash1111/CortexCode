@@ -106,8 +106,8 @@ export default function SecuritySettingsView() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      const msg = err.response?.data?.error?.message || '✓ Password changed successfully. A security notification has been sent to your registered email address.';
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '✓ Password changed successfully. A security notification has been sent to your registered email address.';
       setSuccessMessage(msg);
       setCurrentPassword('');
       setNewPassword('');

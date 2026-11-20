@@ -121,15 +121,20 @@ export default function ObservabilityPage() {
         setObs(obsRes.data?.data || null);
         setWorkspaces(Array.isArray(wsRes.data?.data) ? wsRes.data.data : []);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || err?.message || 'Failed to load observability');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setError(apiErr?.response?.data?.error?.message || apiErr?.message || 'Failed to load observability');
     } finally {
       setLoading(false);
     }
   }, [user, days, workspaceId, moduleFilter, modelFilter]);
 
   useEffect(() => {
-    if (!authLoading) loadTelemetry();
+    if (!authLoading) {
+      queueMicrotask(() => {
+        void loadTelemetry();
+      });
+    }
   }, [authLoading, loadTelemetry]);
 
   return (

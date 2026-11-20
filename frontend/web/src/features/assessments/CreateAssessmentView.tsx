@@ -8,11 +8,42 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl } from '@/lib/apiConfig';
-import { saveAssessmentToStorage } from './assessmentStorage';
+import { saveAssessmentToStorage, type Assessment } from './assessmentStorage';
 import QuestionBankView from './QuestionBankView';
 
+interface DraftQuestionOption {
+  id: string;
+  text: string;
+  isCorrect?: boolean;
+}
+
+interface DraftQuestion {
+  id: string;
+  type: string;
+  prompt?: string;
+  title?: string;
+  description?: string;
+  subject?: string;
+  topic?: string;
+  difficulty?: string;
+  points?: number;
+  order?: number;
+  options?: DraftQuestionOption[];
+  correctAnswer?: string | string[];
+  starterCode?: string | Record<string, string>;
+  testCases?: Array<{ id?: string; input: string; expectedOutput?: string; output?: string; isHidden?: boolean }>;
+  sampleAnswer?: string;
+  comprehensionPassage?: string;
+  multipleCorrect?: boolean;
+  supportedLanguages?: string[];
+  expectedConcepts?: string[];
+  passage?: string;
+  rubric?: string;
+  explanation?: string;
+}
+
 interface Props {
-  initialAssessment?: any;
+  initialAssessment?: Assessment;
   onBack: () => void;
   onAssessmentPublished: () => void;
 }
@@ -41,15 +72,17 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
   const [subjectiveCount, setSubjectiveCount] = useState(1);
   const [comprehensionCount, setComprehensionCount] = useState(1);
 
-  const [sections, setSections] = useState<any[]>(
-    initialAssessment?.sections || [
+  const [sections, setSections] = useState<Array<{ id: string; title: string; order: number; allowBackwardNavigation?: boolean }>>(
+    (initialAssessment?.sections as Array<{ id: string; title: string; order: number; allowBackwardNavigation?: boolean }> | undefined) || [
       { id: 'sec-1', title: 'Core Knowledge & MCQs', order: 1, allowBackwardNavigation: true },
       { id: 'sec-2', title: 'Problem Solving & Coding', order: 2, allowBackwardNavigation: true },
       { id: 'sec-3', title: 'Architectural Analysis', order: 3, allowBackwardNavigation: true }
     ]
   );
 
-  const [generatedQuestions, setGeneratedQuestions] = useState<any[]>(initialAssessment?.questions || []);
+  const [generatedQuestions, setGeneratedQuestions] = useState<DraftQuestion[]>(
+    (initialAssessment?.questions as unknown as DraftQuestion[] | undefined) || []
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -80,7 +113,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
     subj: number,
     comp: number
   ) => {
-    const list: any[] = [];
+    const list: DraftQuestion[] = [];
     let order = 1;
 
     // 1. Generate MCQs
@@ -316,7 +349,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
   };
 
   // 4. Add Question from Question Bank
-  const handleAddFromBank = (bankQuestion: any) => {
+  const handleAddFromBank = (bankQuestion: DraftQuestion) => {
     setGeneratedQuestions(prev => [
       ...prev,
       {
@@ -329,7 +362,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
 
   // 5. Add Custom Manual Question
   const handleAddCustomQuestion = (type: 'MCQ' | 'CODING' | 'SUBJECTIVE' | 'COMPREHENSION') => {
-    const newQ: any = {
+    const newQ: DraftQuestion = {
       id: `q-custom-${Date.now()}`,
       type,
       prompt: `New ${type} question prompt. Click Edit to customize.`,
@@ -404,7 +437,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
       title,
       description,
       durationMinutes: parseInt(durationMinutes as unknown as string, 10) || 60,
-      difficulty: difficulty as any,
+      difficulty: difficulty as Assessment['difficulty'],
       subjects: selectedSubjects,
       questionTypes: ['MCQ', 'Coding', 'Subjective', 'Comprehension'],
       sections,
@@ -415,7 +448,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
     };
 
     // Save persistently to browser storage
-    saveAssessmentToStorage(payload);
+    saveAssessmentToStorage(payload as unknown as Assessment);
 
     try {
       if (isEditing && initialAssessment?.id) {
@@ -748,7 +781,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
           {generatedQuestions.length === 0 && (
             <div className="p-8 text-center text-neutral-500 bg-[#0d0d0d] border border-dashed border-[#262626] rounded-lg space-y-2">
               <Sparkles size={24} className="mx-auto text-neutral-600" />
-              <p>No questions generated yet. Click "Generate Questions with AI" or import from Question Bank.</p>
+              <p>No questions generated yet. Click &quot;Generate Questions with AI&quot; or import from Question Bank.</p>
             </div>
           )}
 
@@ -839,7 +872,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
                       {/* MCQ Options Display */}
                       {q.type === 'MCQ' && q.options && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs font-mono pt-1">
-                          {q.options.map((opt: any) => {
+                          {q.options.map((opt: DraftQuestionOption) => {
                             const isCorrect = Array.isArray(q.correctAnswer)
                               ? q.correctAnswer.includes(opt.id)
                               : q.correctAnswer === opt.id;
@@ -937,7 +970,7 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
                       {q.type === 'MCQ' && q.options && (
                         <div className="space-y-2">
                           <label className="block text-[11px] font-mono text-neutral-400">Options & Correct Answer</label>
-                          {q.options.map((opt: any, optIdx: number) => (
+                          {q.options.map((opt: DraftQuestionOption, optIdx: number) => (
                             <div key={opt.id} className="flex items-center gap-2">
                               <span className="w-5 text-center font-mono text-xs font-bold text-neutral-400">{opt.id}</span>
                               <input
@@ -945,7 +978,9 @@ export default function CreateAssessmentView({ initialAssessment, onBack, onAsse
                                 value={opt.text}
                                 onChange={e => {
                                   const updated = [...generatedQuestions];
-                                  updated[idx].options[optIdx].text = e.target.value;
+                                  if (updated[idx].options) {
+                                    updated[idx].options[optIdx].text = e.target.value;
+                                  }
                                   setGeneratedQuestions(updated);
                                 }}
                                 className="flex-1 p-1.5 bg-[#121212] border border-[#262626] rounded text-xs text-white outline-none"

@@ -7,9 +7,10 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl } from '@/lib/apiConfig';
+import type { AssessmentQuestion } from './assessmentStorage';
 
 interface Props {
-  onInsertQuestion?: (question: any) => void;
+  onInsertQuestion?: (question: AssessmentQuestion) => void;
   isSelectMode?: boolean;
 }
 
@@ -27,7 +28,7 @@ const ALL_SUBJECTS = [
 ];
 
 export default function QuestionBankView({ onInsertQuestion, isSelectMode = false }: Props) {
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
   const [selectedSubject, setSelectedSubject] = useState('ALL');
   const [selectedDifficulty, setSelectedDifficulty] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
@@ -58,7 +59,9 @@ export default function QuestionBankView({ onInsertQuestion, isSelectMode = fals
   };
 
   useEffect(() => {
-    fetchQuestions();
+    queueMicrotask(() => {
+      void fetchQuestions();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubject, selectedDifficulty, selectedType]);
 
@@ -67,7 +70,7 @@ export default function QuestionBankView({ onInsertQuestion, isSelectMode = fals
     fetchQuestions();
   };
 
-  const handleCopyQuestion = (q: any) => {
+  const handleCopyQuestion = (q: AssessmentQuestion) => {
     if (onInsertQuestion) {
       onInsertQuestion(q);
       setCopiedId(q.id);
@@ -226,7 +229,7 @@ export default function QuestionBankView({ onInsertQuestion, isSelectMode = fals
               {/* MCQ Options Display */}
               {q.type === 'MCQ' && q.options && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-xs font-mono">
-                  {q.options.map((opt: any) => {
+                  {q.options.map((opt: { id: string; text: string; isCorrect?: boolean }) => {
                     const isCorrect = Array.isArray(q.correctAnswer)
                       ? q.correctAnswer.includes(opt.id)
                       : q.correctAnswer === opt.id;

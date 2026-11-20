@@ -1,14 +1,19 @@
 export interface AssessmentQuestion {
   id: string;
-  type: 'MCQ' | 'Coding' | 'Subjective' | 'Comprehension';
-  title: string;
-  description: string;
+  type: 'MCQ' | 'Coding' | 'Subjective' | 'Comprehension' | string;
+  title?: string;
+  prompt?: string;
+  description?: string;
   points: number;
   subject?: string;
   topic?: string;
-  options?: { id: string; text: string; isCorrect: boolean }[];
-  starterCode?: string;
-  testCases?: { id: string; input: string; expectedOutput: string; isHidden?: boolean }[];
+  difficulty?: string;
+  order?: number;
+  options?: { id: string; text: string; isCorrect?: boolean }[];
+  correctAnswer?: string | string[];
+  explanation?: string;
+  starterCode?: string | Record<string, string>;
+  testCases?: { id?: string; input: string; expectedOutput?: string; output?: string; isHidden?: boolean }[];
   sampleAnswer?: string;
   comprehensionPassage?: string;
 }
@@ -18,13 +23,13 @@ export interface Assessment {
   title: string;
   description: string;
   durationMinutes: number;
-  difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert' | string;
   subjects: string[];
   questionTypes?: string[];
-  sections?: { id: string; name: string; questionCount: number; durationMinutes?: number }[];
+  sections?: { id?: string; title?: string; name?: string; order?: number; allowBackwardNavigation?: boolean; questionCount?: number; durationMinutes?: number }[];
   canNavigateBackwards?: boolean;
   questions: AssessmentQuestion[];
-  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   totalPoints?: number;
   createdAt?: string;
   updatedAt?: string;

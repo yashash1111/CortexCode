@@ -81,7 +81,9 @@ export function PRReviewerTab({ workspaceId }: { workspaceId: string }) {
   }, [workspaceId, activeReview]);
 
   useEffect(() => {
-    loadReviews();
+    queueMicrotask(() => {
+      void loadReviews();
+    });
   }, [loadReviews]);
 
   const handleRunReview = async (e: React.FormEvent) => {
@@ -101,8 +103,9 @@ export function PRReviewerTab({ workspaceId }: { workspaceId: string }) {
       setSelectedFile(rev.changedFiles?.[0]?.filename || '');
       setPrUrl('');
       await loadReviews();
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || err?.message || 'PR review failed');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setError(apiErr?.response?.data?.error?.message || apiErr?.message || 'PR review failed');
     } finally {
       setSubmitting(false);
     }
@@ -119,8 +122,8 @@ export function PRReviewerTab({ workspaceId }: { workspaceId: string }) {
             }
           : null
       );
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to update finding');
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to update finding');
     }
   };
 
@@ -134,8 +137,8 @@ export function PRReviewerTab({ workspaceId }: { workspaceId: string }) {
       });
       setConfirmPublish(false);
       setNotice(`Published approved review comments to GitHub: ${res.data?.data?.commentUrl}`);
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to publish comments to GitHub');
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to publish comments to GitHub');
     } finally {
       setPublishing(false);
     }

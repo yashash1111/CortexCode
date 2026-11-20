@@ -135,7 +135,7 @@ export default function EmptyState({ onSelectPrompt, mode }: EmptyStateProps) {
                 </span>
               </div>
               <div className="text-xs font-extrabold text-zinc-200 group-hover:text-white leading-snug">
-                "{item.title}"
+                &quot;{item.title}&quot;
               </div>
             </div>
 

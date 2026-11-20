@@ -58,7 +58,7 @@ export default function VoiceInput({ onTranscript }: VoiceInputProps) {
         {/* Live Interim Transcript Display */}
         {(interimTranscript || transcript) && (
           <span className="text-xs text-purple-200 max-w-[200px] truncate italic border-l border-purple-500/30 pl-2">
-            "{interimTranscript || transcript}"
+            &quot;{interimTranscript || transcript}&quot;
           </span>
         )}
 

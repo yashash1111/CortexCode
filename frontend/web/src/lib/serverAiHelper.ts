@@ -29,7 +29,7 @@ const SYSTEM_INSTRUCTIONS: Record<string, string> = {
 
 export async function generateAiResponseServer(
   prompt: string,
-  history: any[] = [],
+  history: Array<{ role?: string; content: string }> = [],
   mode: string = 'chat',
   userKeys?: UserApiKeys
 ): Promise<string> {
@@ -112,8 +112,8 @@ export async function generateAiResponseServer(
           lastProviderError = errData?.error?.message || `Gemini HTTP status ${res.status}`;
           console.warn(`[Gemini Server] Model ${model} returned error: ${lastProviderError}`);
         }
-      } catch (err: any) {
-        lastProviderError = err.message || 'Gemini network error';
+      } catch (err: unknown) {
+        lastProviderError = err instanceof Error ? err.message : 'Gemini network error';
         console.warn(`[Gemini Server] Model ${model} exception: ${lastProviderError}`);
       }
     }

@@ -13,16 +13,43 @@ import { useAuth } from '@/providers/AuthProvider';
 
 import TestInformationView from './TestInformationView';
 import TestTakingWorkbench from './TestTakingWorkbench';
-import TestResultView from './TestResultView';
+import TestResultView, { type TestResultProps } from './TestResultView';
 import CreateAssessmentView from './CreateAssessmentView';
 import QuestionBankView from './QuestionBankView';
 import CreatorManageView from './CreatorManageView';
 import ProctoringCheckView from './ProctoringCheckView';
-import { getPublishedAssessments, getCreatorAssessments } from './assessmentStorage';
+import { getPublishedAssessments, getCreatorAssessments, type Assessment } from './assessmentStorage';
 
 export type UserViewMode = 'candidate' | 'creator';
 export type CandidateSubTab = 'available' | 'my-tests' | 'results' | 'practice';
 export type CreatorSubTab = 'manage' | 'create' | 'bank' | 'submissions';
+
+interface AssessmentHistoryItem {
+  id: string;
+  sessionId?: string;
+  assessmentTitle: string;
+  date: string;
+  score: number;
+  status?: string;
+}
+
+interface CreatorSubmissionItem {
+  id?: string;
+  sessionId: string;
+  candidateName?: string;
+  candidateEmail?: string;
+  assessmentTitle: string;
+  overallScore: number;
+  mcqScore?: number;
+  codingScore?: number;
+  subjectiveScore?: number;
+  comprehensionScore?: number;
+  violationCount?: number;
+  evaluationStatus?: string;
+  integritySummary?: { status?: string };
+  submittedAt?: string;
+  humanReviewed?: boolean;
+}
 
 export default function AssessmentHub() {
   const { user } = useAuth();
@@ -35,31 +62,31 @@ export default function AssessmentHub() {
   const [creatorTab, setCreatorTab] = useState<CreatorSubTab>('manage');
 
   // Assessments & History
-  const [assessments, setAssessments] = useState<any[]>(() => getPublishedAssessments());
-  const [creatorAssessments, setCreatorAssessments] = useState<any[]>(() => getCreatorAssessments());
-  const [history, setHistory] = useState<any[]>([]);
-  const [creatorSubmissions, setCreatorSubmissions] = useState<any[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>(() => getPublishedAssessments());
+  const [creatorAssessments, setCreatorAssessments] = useState<Assessment[]>(() => getCreatorAssessments());
+  const [history, setHistory] = useState<AssessmentHistoryItem[]>([]);
+  const [creatorSubmissions, setCreatorSubmissions] = useState<CreatorSubmissionItem[]>([]);
   const [submissionsStats, setSubmissionsStats] = useState({ totalSubmissions: 0, averageScore: 85 });
   const [loading, setLoading] = useState(false);
 
   // Active test taking workflow state
-  const [selectedAssessment, setSelectedAssessment] = useState<any | null>(null);
+  const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
   const [isCheckingProctoring, setIsCheckingProctoring] = useState(false);
   const [activeVideoStream, setActiveVideoStream] = useState<MediaStream | null>(null);
   const [activeScreenStream, setActiveScreenStream] = useState<MediaStream | null>(null);
   const [isTakingTest, setIsTakingTest] = useState(false);
-  const [activeSession, setActiveSession] = useState<any | null>(null);
-  const [initialAnswers, setInitialAnswers] = useState<Record<string, any>>({});
-  const [latestResult, setLatestResult] = useState<any | null>(null);
+  const [activeSession, setActiveSession] = useState<{ id: string; expiresAt?: string; currentQuestionIndex?: number } | null>(null);
+  const [initialAnswers, setInitialAnswers] = useState<Record<string, Record<string, unknown>>>({});
+  const [latestResult, setLatestResult] = useState<TestResultProps['result'] | null>(null);
 
   // Evaluation processing state
   const [evaluationLoading, setEvaluationLoading] = useState(false);
 
   // Creator editing state
-  const [editingAssessment, setEditingAssessment] = useState<any | null>(null);
+  const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
 
   // Human Review Modal State
-  const [reviewModalSession, setReviewModalSession] = useState<any | null>(null);
+  const [reviewModalSession, setReviewModalSession] = useState<CreatorSubmissionItem | null>(null);
   const [adjustedScore, setAdjustedScore] = useState<number>(85);
   const [reviewReason, setReviewReason] = useState<string>('Faculty rubric review and subjective adjustments.');
   const [reviewFeedback, setReviewFeedback] = useState<string>('Great technical approach with well-structured reasoning.');
@@ -77,7 +104,7 @@ export default function AssessmentHub() {
     try {
       const res = await axios.get(`${getApiUrl()}/api/assessments?role=candidate`, { withCredentials: true });
       if (res.data?.data?.assessments && res.data.data.assessments.length > 0) {
-        const apiIds = new Set(res.data.data.assessments.map((a: any) => a.id));
+        const apiIds = new Set(res.data.data.assessments.map((a: { id: string }) => a.id));
         const customLocal = localPublished.filter(a => !apiIds.has(a.id));
         setAssessments([...res.data.data.assessments, ...customLocal]);
         return;
@@ -92,7 +119,7 @@ export default function AssessmentHub() {
     try {
       const res = await axios.get(`${getApiUrl()}/api/assessments?role=creator`, { withCredentials: true });
       if (res.data?.data?.assessments && res.data.data.assessments.length > 0) {
-        const apiIds = new Set(res.data.data.assessments.map((a: any) => a.id));
+        const apiIds = new Set(res.data.data.assessments.map((a: { id: string }) => a.id));
         const customLocal = localCreator.filter(a => !apiIds.has(a.id));
         setCreatorAssessments([...res.data.data.assessments, ...customLocal]);
         return;
@@ -126,14 +153,16 @@ export default function AssessmentHub() {
   };
 
   useEffect(() => {
-    fetchCandidateAssessments();
-    fetchCreatorAssessments();
-    fetchHistory();
-    fetchCreatorSubmissions();
+    queueMicrotask(() => {
+      void fetchCandidateAssessments();
+      void fetchCreatorAssessments();
+      void fetchHistory();
+      void fetchCreatorSubmissions();
+    });
   }, []);
 
   // 1. Select Test -> Show Overview
-  const handleSelectTest = (a: any) => {
+  const handleSelectTest = (a: Assessment) => {
     setSelectedAssessment(a);
   };
 
@@ -172,7 +201,7 @@ export default function AssessmentHub() {
   };
 
   // 3. Submit Test -> Evaluate & Show Results
-  const handleSubmitTest = async (answers: any[]) => {
+  const handleSubmitTest = async (answers: unknown[]) => {
     setEvaluationLoading(true);
     const sessionId = activeSession?.id || `sess-${selectedAssessment?.id || 'asm-101'}`;
 
@@ -432,7 +461,7 @@ export default function AssessmentHub() {
   if (viewMode === 'creator' && creatorTab === 'create') {
     return (
       <CreateAssessmentView
-        initialAssessment={editingAssessment}
+        initialAssessment={editingAssessment ?? undefined}
         onBack={() => {
           setEditingAssessment(null);
           setCreatorTab('manage');

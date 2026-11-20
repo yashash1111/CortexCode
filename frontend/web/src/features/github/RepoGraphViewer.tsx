@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Network, Filter } from 'lucide-react';
 
-interface GraphFile {
+export interface GraphFile {
   id: string;
   path: string;
   language?: string | null;
@@ -11,7 +11,7 @@ interface GraphFile {
   imports?: string[];
 }
 
-interface GraphEdge {
+export interface GraphEdge {
   id: string;
   sourceFile: string;
   sourceSymbol?: string | null;

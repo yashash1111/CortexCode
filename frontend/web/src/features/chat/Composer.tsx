@@ -119,7 +119,7 @@ export default function Composer({
 
     // Filter ignored folders
     const validFiles = files.filter(file => {
-      const pathParts = (file as unknown).webkitRelativePath?.split('/') || [];
+      const pathParts = (file as File & { webkitRelativePath?: string }).webkitRelativePath?.split('/') || [];
       return !pathParts.some((part: string) => IGNORED_FOLDERS.has(part));
     });
 
@@ -128,18 +128,18 @@ export default function Composer({
       return;
     }
 
-    const folderName = (validFiles[0] as unknown).webkitRelativePath?.split('/')[0] || 'Project';
+    const folderName = (validFiles[0] as File & { webkitRelativePath?: string }).webkitRelativePath?.split('/')[0] || 'Project';
 
     const folderContents: FolderFile[] = [];
     for (const file of validFiles) {
-      const relativePath = (file as unknown).webkitRelativePath || file.name;
+      const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
       const type = detectFileType(file.name, file.type);
       const folderFile: FolderFile = {
         path: relativePath,
         name: file.name,
         size: file.size,
         mimeType: file.type || 'text/plain',
-        type: type === 'folder' ? 'code' : type as unknown,
+        type: type === 'folder' ? 'code' : (type as FolderFile['type']),
       };
 
       if (isTextReadable(type) && file.size < 500 * 1024) { // Read files < 500KB
@@ -355,7 +355,7 @@ export default function Composer({
         ref={folderInputRef}
         onChange={handleFolderChange}
         className="hidden"
-        {...({ webkitdirectory: '', directory: '' } as unknown)}
+        {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
         multiple
       />
     </div>

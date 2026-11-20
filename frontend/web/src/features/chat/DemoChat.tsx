@@ -19,6 +19,9 @@ import {
 } from './types';
 import VoiceInput from './VoiceInput';
 
+const getNowMs = () => Date.now();
+const createId = (prefix: string) => `${prefix}-${getNowMs()}`;
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -46,7 +49,7 @@ interface DemoChatProps {
 
 export type AIMode = 'chat' | 'debug' | 'explain' | 'notes' | 'review';
 
-const MODES: { id: AIMode; label: string; icon: any; desc: string }[] = [
+const MODES: { id: AIMode; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; desc: string }[] = [
   { id: 'chat', label: 'General Chat', icon: MessageSquare, desc: 'General-purpose AI assistant for any query' },
   { id: 'debug', label: 'Debug Mode', icon: Bug, desc: 'Root cause analysis & exact code fixes' },
   { id: 'explain', label: 'Explain Code', icon: Lightbulb, desc: 'Step-by-step code & concept walkthrough' },
@@ -205,26 +208,28 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
   // Load conversations and API keys from LocalStorage on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cortexcode_demo_conversations');
-      if (saved) {
-        const parsed: Conversation[] = JSON.parse(saved);
-        if (parsed.length > 0) {
-          setConversations(parsed);
-          setActiveConvId(parsed[0].id);
-          setMessages(parsed[0].messages);
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem('cortexcode_demo_conversations');
+        if (saved) {
+          const parsed: Conversation[] = JSON.parse(saved);
+          if (parsed.length > 0) {
+            setConversations(parsed);
+            setActiveConvId(parsed[0].id);
+            setMessages(parsed[0].messages);
+          }
         }
-      }
 
-      const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
-      if (rawKeys) {
-        const parsedKeys = JSON.parse(rawKeys);
-        setSavedApiKeys(parsedKeys);
-        if (parsedKeys.gemini) setApiKey(parsedKeys.gemini);
+        const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
+        if (rawKeys) {
+          const parsedKeys = JSON.parse(rawKeys);
+          setSavedApiKeys(parsedKeys);
+          if (parsedKeys.gemini) setApiKey(parsedKeys.gemini);
+        }
+      } catch {
+        // Ignore parse errors
       }
-    } catch {
-      // Ignore parse errors
-    }
+    });
   }, []);
 
   // Save conversations to LocalStorage when updated
@@ -268,7 +273,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
   // Create New Chat
   const startNewChat = () => {
-    const newId = 'conv-' + Date.now();
+    const newId = createId('conv');
     const newConv: Conversation = {
       id: newId,
       title: 'New Chat',
@@ -331,7 +336,19 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    type SpeechRec = {
+      continuous: boolean;
+      interimResults: boolean;
+      lang: string;
+      onstart: (() => void) | null;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+      onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+      start: () => void;
+    };
+    const SpeechWin = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+    const SpeechRecognition = SpeechWin.SpeechRecognition || SpeechWin.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
@@ -340,7 +357,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setInput(prev => (prev ? prev + ' ' + transcript : transcript));
     };
@@ -381,8 +398,8 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     }
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const userMsgId = 'msg-' + Date.now();
-    const assistantMsgId = 'msg-' + (Date.now() + 1);
+    const userMsgId = createId('msg');
+    const assistantMsgId = `msg-${getNowMs() + 1}`;
 
     const currentReplyTo = replyingTo;
 
@@ -420,7 +437,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     let activeConv = updatedConvs.find(c => c.id === currentConvId);
 
     if (!activeConv || !currentConvId) {
-      currentConvId = 'conv-' + Date.now();
+      currentConvId = createId('conv');
       setActiveConvId(currentConvId);
       activeConv = {
         id: currentConvId,
@@ -484,8 +501,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
       let accumulatedContent = '';
 
-      const startTime = Date.now();
-      let thinkingFinished = false;
+      const startTime = getNowMs();
 
       if (aiResponseStream && aiResponseStream.ok && aiResponseStream.body) {
         const reader = aiResponseStream.body.getReader();
@@ -514,13 +530,14 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
                 if (token) {
                   accumulatedContent += token;
-                  const duration = Math.max(0.4, Number(((Date.now() - startTime) / 1000).toFixed(1)));
+                  const nextContent = accumulatedContent;
+                  const duration = Math.max(0.4, Number(((getNowMs() - startTime) / 1000).toFixed(1)));
                   setMessages(prev =>
                     prev.map(m =>
                       m.id === assistantMsgId
                         ? {
                             ...m,
-                            content: accumulatedContent,
+                            content: nextContent,
                             isThinking: false,
                             thinkingDuration: m.thinkingDuration || duration
                           }
@@ -570,8 +587,8 @@ export default function DemoChat({ onClose }: DemoChatProps) {
       );
       saveConversations(finalConvs);
 
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         // User stopped generation
       } else {
         console.error('[CortexCode AI] Error:', err);
@@ -644,7 +661,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
     let rootFolderName = 'Uploaded Folder';
 
     for (const file of Array.from(files)) {
-      const relativePath = (file as any).webkitRelativePath || file.name;
+      const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
       if (relativePath.includes('/')) {
         rootFolderName = relativePath.split('/')[0];
       }
@@ -660,7 +677,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         name: file.name,
         size: file.size,
         mimeType: file.type || 'text/plain',
-        type,
+        type: type === 'folder' ? 'code' : type,
         extractedText: text
       });
     }
@@ -1065,7 +1082,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
                 <div className="flex items-center gap-2 truncate">
                   <CornerUpLeft size={14} className="text-purple-400 shrink-0" />
                   <span className="font-bold text-purple-300">Replying to {replyingTo.author}:</span>
-                  <span className="truncate text-purple-200/80">"{replyingTo.content.slice(0, 90)}"</span>
+                  <span className="truncate text-purple-200/80">&quot;{replyingTo.content.slice(0, 90)}&quot;</span>
                 </div>
                 <button
                   onClick={() => setReplyingTo(null)}
@@ -1251,7 +1268,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
         ref={folderInputRef}
         onChange={handleFolderUpload}
         className="hidden"
-        {...({ webkitdirectory: '', directory: '' } as unknown)}
+        {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
         multiple
       />
     </div>

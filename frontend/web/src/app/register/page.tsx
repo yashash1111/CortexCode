@@ -9,6 +9,7 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
+import { apiClient } from '@/lib/apiClient';
 
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -58,26 +59,30 @@ export default function RegisterPage() {
       
       toast.showSuccess('Account Created Successfully!', 'Redirecting to sign in...');
       router.push('/login');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as {
+        response?: { data?: { error?: string | { message?: string; issues?: Array<{ message?: string }> } } };
+        message?: string;
+      };
       let msg = 'Registration failed. Please try again.';
-      if (err.response?.data?.error) {
-        const errData = err.response.data.error;
+      if (apiErr.response?.data?.error) {
+        const errData = apiErr.response.data.error;
         if (typeof errData === 'string') {
           msg = errData;
         } else if (typeof errData.message === 'string') {
           msg = errData.message;
         } else if (Array.isArray(errData.issues)) {
-          msg = errData.issues.map((i: any) => i.message).join('. ');
+          msg = errData.issues.map((i) => i.message).join('. ');
         }
-      } else if (err.message) {
-        msg = err.message;
+      } else if (apiErr.message) {
+        msg = apiErr.message;
       }
       
       if (typeof msg === 'string' && (msg.startsWith('[') || msg.startsWith('{'))) {
         try {
           const parsed = JSON.parse(msg);
           if (Array.isArray(parsed)) {
-            msg = parsed.map((i: any) => i.message || i).join('. ');
+            msg = parsed.map((i: { message?: string } | string) => (typeof i === 'string' ? i : i.message || '')).join('. ');
           } else if (parsed.message) {
             msg = parsed.message;
           }
@@ -122,8 +127,8 @@ export default function RegisterPage() {
 
       toast.showSuccess('Google Registration Complete', `Welcome, ${userName}!`);
       router.push('/workspace');
-    } catch (err: any) {
-      const msg = err?.message || 'Google registration was cancelled.';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Google registration was cancelled.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -160,8 +165,8 @@ export default function RegisterPage() {
 
       toast.showSuccess('GitHub Registration Complete', `Welcome, ${userName}!`);
       router.push('/workspace');
-    } catch (err: any) {
-      const msg = err?.message || 'GitHub registration was cancelled.';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'GitHub registration was cancelled.';
       setError(msg);
     } finally {
       setLoading(false);

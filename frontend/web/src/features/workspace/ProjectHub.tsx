@@ -91,16 +91,18 @@ export default function ProjectHub() {
   const [newTaskInput, setNewTaskInput] = useState('');
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cortexcode_projects');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.length > 0) {
-          setProjects(parsed);
-          setActiveProjectId(parsed[0].id);
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem('cortexcode_projects');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0) {
+            setProjects(parsed);
+            setActiveProjectId(parsed[0].id);
+          }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
+    });
   }, []);
 
   const saveProjects = (updated: ProjectItem[]) => {
@@ -263,7 +265,7 @@ export default function ProjectHub() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as unknown)}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'tasks' | 'docs' | 'decisions')}
                 className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold border-b-2 transition ${
                   isActive
                     ? 'border-blue-500 text-white bg-[#141414]'

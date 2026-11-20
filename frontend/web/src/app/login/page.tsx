@@ -9,6 +9,7 @@ import BackgroundVideo from '@/components/BackgroundVideo';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
+import { apiClient } from '@/lib/apiClient';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
@@ -27,17 +28,19 @@ function LoginContent() {
   const redirectTarget = searchParams.get('redirect') || '/workspace';
 
   useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('registered_credentials');
-      if (saved) {
-        const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
-        if (savedEmail) setEmail(savedEmail);
-        if (savedPassword) setPassword(savedPassword);
-        sessionStorage.removeItem('registered_credentials');
-        toast.showInfo('Credentials Auto-filled', 'Account created! Click Sign In to launch your workspace.');
-      }
-    } catch { /* ignore */ }
-  }, []);
+    queueMicrotask(() => {
+      try {
+        const saved = sessionStorage.getItem('registered_credentials');
+        if (saved) {
+          const { email: savedEmail, password: savedPassword } = JSON.parse(saved);
+          if (savedEmail) setEmail(savedEmail);
+          if (savedPassword) setPassword(savedPassword);
+          sessionStorage.removeItem('registered_credentials');
+          toast.showInfo('Credentials Auto-filled', 'Account created! Click Sign In to launch your workspace.');
+        }
+      } catch { /* ignore */ }
+    });
+  }, [toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,14 +51,15 @@ function LoginContent() {
       await login(email, password);
       toast.showSuccess('Signed In Successfully!', 'Launching your AI developer workspace...');
       router.push(redirectTarget);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: string | { message?: string } } }; message?: string };
       let msg = 'Invalid email or password.';
-      if (err.response?.data?.error) {
-        const errData = err.response.data.error;
+      if (apiErr.response?.data?.error) {
+        const errData = apiErr.response.data.error;
         if (typeof errData === 'string') msg = errData;
         else if (typeof errData.message === 'string') msg = errData.message;
-      } else if (err.message) {
-        msg = err.message;
+      } else if (apiErr.message) {
+        msg = apiErr.message;
       }
       msg = String(msg).replace(/^\{|\}$|^\[|\]$/g, '').trim();
       setError(msg);
@@ -95,13 +99,14 @@ function LoginContent() {
 
       toast.showSuccess('Google Auth Verified', `Welcome back, ${userName}!`);
       router.push(redirectTarget);
-    } catch (err: any) {
-      if (err?.code === 'auth/unauthorized-domain' || String(err?.message).includes('unauthorized-domain')) {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string; message?: string };
+      if (firebaseErr?.code === 'auth/unauthorized-domain' || String(firebaseErr?.message).includes('unauthorized-domain')) {
         setUserProfile({ name: 'Google Developer', email: 'user.google@gmail.com' });
         toast.showSuccess('Google Session Active', 'Launching workspace...');
         router.push(redirectTarget);
       } else {
-        const msg = err?.message || 'Google sign-in was cancelled.';
+        const msg = firebaseErr?.message || 'Google sign-in was cancelled.';
         setError(msg);
       }
     } finally {
@@ -139,13 +144,14 @@ function LoginContent() {
 
       toast.showSuccess('GitHub Auth Verified', `Welcome back, ${userName}!`);
       router.push(redirectTarget);
-    } catch (err: any) {
-      if (err?.code === 'auth/unauthorized-domain' || String(err?.message).includes('unauthorized-domain')) {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string; message?: string };
+      if (firebaseErr?.code === 'auth/unauthorized-domain' || String(firebaseErr?.message).includes('unauthorized-domain')) {
         setUserProfile({ name: 'GitHub Developer', email: 'developer.github@gmail.com' });
         toast.showSuccess('GitHub Session Active', 'Launching workspace...');
         router.push(redirectTarget);
       } else {
-        const msg = err?.message || 'GitHub sign-in was cancelled.';
+        const msg = firebaseErr?.message || 'GitHub sign-in was cancelled.';
         setError(msg);
       }
     } finally {
@@ -322,7 +328,7 @@ function LoginContent() {
           </button>
 
           <div className="text-center text-xs text-zinc-400">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/register" className="text-blue-400 hover:text-blue-300 font-bold transition-colors">
               Create Account
             </Link>

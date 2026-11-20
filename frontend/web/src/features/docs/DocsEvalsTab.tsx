@@ -32,20 +32,22 @@ export function DocsEvalsTab({
         const detail = await apiClient.get(`/api/docs/evals/${list[0].id}`);
         setSelectedRun(detail.data?.data || list[0]);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to load evaluation runs');
+    } catch (err: unknown) {
+      setError((err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Failed to load evaluation runs');
     } finally {
       setLoading(false);
     }
   }, [workspaceId, selectedRun]);
 
   useEffect(() => {
-    loadRuns();
+    queueMicrotask(() => {
+      void loadRuns();
+    });
   }, [loadRuns]);
 
   const handleRunEval = async () => {
     setError(null);
-    let parsedCases: any[] | undefined;
+    let parsedCases: Array<{ question: string; expectedSource?: string; groundTruth?: string }> | undefined;
 
     if (showCustom && customJson.trim()) {
       try {
@@ -54,8 +56,8 @@ export function DocsEvalsTab({
           throw new Error('Dataset must be a non-empty JSON array.');
         }
         parsedCases = parsed;
-      } catch (e: any) {
-        setError(`Invalid JSON dataset: ${e.message}`);
+      } catch (e: unknown) {
+        setError(`Invalid JSON dataset: ${e instanceof Error ? e.message : 'Parse error'}`);
         return;
       }
     }
@@ -70,8 +72,9 @@ export function DocsEvalsTab({
       const run: EvalRunItem = res.data?.data;
       setSelectedRun(run);
       await loadRuns();
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || err?.message || 'Evaluation run failed');
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setError(apiErr?.response?.data?.error?.message || apiErr?.message || 'Evaluation run failed');
     } finally {
       setRunning(false);
     }

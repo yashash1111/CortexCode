@@ -55,8 +55,8 @@ apiClient.interceptors.response.use(
         await apiClient.post('/api/auth/refresh');
         processQueue(null);
         return apiClient(originalRequest);
-      } catch (refreshError: any) {
-        processQueue(refreshError);
+      } catch (refreshError: unknown) {
+        processQueue(refreshError instanceof Error ? refreshError : new Error('Token refresh failed'));
         if (typeof window !== 'undefined') {
           localStorage.removeItem('cortexcode_user');
         }

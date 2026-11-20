@@ -79,18 +79,15 @@ function selectBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice |
 export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
   const [activeVoiceName, setActiveVoiceName] = useState('Gemini Voice');
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setIsSupported(false);
+    if (!isSupported) {
       return;
     }
-
-    setIsSupported(true);
 
     const updateVoices = () => {
       const available = window.speechSynthesis.getVoices();

@@ -17,6 +17,7 @@ import {
 import { DashboardShell } from '@/components/layout/DashboardShell';
 import { EmptyState, ErrorState, LoadingState } from '@/components/layout/StateCards';
 import { apiClient } from '@/lib/apiClient';
+import { getErrorMessage } from '@/lib/errorUtils';
 import { useAuth } from '@/providers/AuthProvider';
 import { ChatMsg, CitationSource, DocItem } from '@/features/docs/types';
 import { MarkdownRenderer } from '@/features/docs/MarkdownRenderer';
@@ -64,8 +65,8 @@ export default function DocsPage() {
       if (list.length > 0 && !workspaceId) {
         setWorkspaceId(list[0].id);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || err?.message || 'Failed to load workspaces');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load workspaces'));
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,8 @@ export default function DocsPage() {
         apiClient.get(`/api/docs/chat/history?workspaceId=${encodeURIComponent(wsId)}`),
       ]);
       setDocuments(Array.isArray(docsRes.data?.data) ? docsRes.data.data : []);
-      const msgs: ChatMsg[] = (chatRes.data?.data?.messages || []).map((m: any) => ({
+      const rawMsgs = Array.isArray(chatRes.data?.data?.messages) ? chatRes.data.data.messages : [];
+      const msgs: ChatMsg[] = rawMsgs.map((m: { id: string; role?: string; content: string; sources?: CitationSource[] }) => ({
         id: m.id,
         role: m.role === 'assistant' ? 'assistant' : 'user',
         content: m.content,
@@ -93,22 +95,26 @@ export default function DocsPage() {
       } else {
         setActiveSources([]);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to load workspace documents');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load workspace documents'));
     }
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      loadWorkspaces();
-    } else if (!authLoading) {
-      setLoading(false);
-    }
+    queueMicrotask(() => {
+      if (!authLoading && user) {
+        void loadWorkspaces();
+      } else if (!authLoading) {
+        setLoading(false);
+      }
+    });
   }, [authLoading, user, loadWorkspaces]);
 
   useEffect(() => {
     if (workspaceId) {
-      loadWorkspaceDocsAndChat(workspaceId);
+      queueMicrotask(() => {
+        void loadWorkspaceDocsAndChat(workspaceId);
+      });
     }
   }, [workspaceId, loadWorkspaceDocsAndChat]);
 
@@ -132,8 +138,8 @@ export default function DocsPage() {
         setNewWsName('');
         setShowNewWs(false);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to create workspace');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to create workspace'));
     } finally {
       setCreatingWs(false);
     }
@@ -238,16 +244,16 @@ export default function DocsPage() {
             } else if (evt.type === 'error') {
               throw new Error(evt.error || 'Streaming failed');
             }
-          } catch (parseErr: any) {
-            if (parseErr?.message && !parseErr.message.includes('JSON')) {
+          } catch (parseErr: unknown) {
+            if (parseErr instanceof Error && !parseErr.message.includes('JSON')) {
               throw parseErr;
             }
           }
         }
       }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        setError(err.message || 'Streaming chat failed');
+    } catch (err: unknown) {
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        setError(getErrorMessage(err, 'Streaming chat failed'));
       }
     } finally {
       setStreaming(false);

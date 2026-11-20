@@ -74,13 +74,15 @@ export default function MultiAgentView() {
   const [selectedTools, setSelectedTools] = useState<string[]>(['Memory', 'Code Analysis']);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cortexcode_custom_agents');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setAgents([...BUILTIN_AGENTS, ...parsed]);
-      }
-    } catch { /* ignore */ }
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem('cortexcode_custom_agents');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setAgents([...BUILTIN_AGENTS, ...parsed]);
+        }
+      } catch { /* ignore */ }
+    });
   }, []);
 
   const saveCustomAgents = (customList: AgentItem[]) => {

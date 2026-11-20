@@ -44,8 +44,9 @@ export async function POST(req: NextRequest) {
         'Connection': 'keep-alive'
       }
     });
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || 'Stream failed' }), {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Stream failed';
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

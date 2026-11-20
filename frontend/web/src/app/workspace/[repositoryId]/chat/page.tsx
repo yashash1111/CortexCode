@@ -81,9 +81,9 @@ function SetupWizard({ onKeySet }: { onKeySet: (key: string) => void }) {
         localStorage.setItem('cortexcode_user_api_keys', JSON.stringify({ gemini: key.trim() }));
         onKeySet(key.trim());
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setStep(2);
-      const msg = e.message || 'Unknown error';
+      const msg = e instanceof Error ? e.message : 'Unknown error';
       if (msg.includes('expired') || msg.includes('401')) {
         setError('This token has expired. Please get a fresh one from Google AI Studio or OAuth Playground.');
       } else if (msg.includes('403') || msg.includes('PERMISSION')) {
@@ -135,7 +135,7 @@ function SetupWizard({ onKeySet }: { onKeySet: (key: string) => void }) {
                   <span className="text-violet-400 text-lg mt-0.5">①</span>
                   <div>
                     <div className="text-white text-xs font-semibold mb-0.5">Gemini API Key (recommended)</div>
-                    <div className="text-zinc-500 text-xs">From <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">aistudio.google.com/app/apikey</a> → Click "Create API key" → key starts with <code className="text-violet-300 bg-black/30 px-1 rounded">AIzaSy...</code></div>
+                    <div className="text-zinc-500 text-xs">From <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">aistudio.google.com/app/apikey</a> → Click &quot;Create API key&quot; → key starts with <code className="text-violet-300 bg-black/30 px-1 rounded">AIzaSy...</code></div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2.5 p-3 bg-zinc-800/50 border border-white/8 rounded-xl">
@@ -152,7 +152,7 @@ function SetupWizard({ onKeySet }: { onKeySet: (key: string) => void }) {
           {step === 2 && (
             <div>
               <h3 className="text-white font-semibold mb-1">Paste your credential here</h3>
-              <p className="text-zinc-400 text-sm mb-3">Paste your API key or OAuth token below. We'll test it automatically.</p>
+              <p className="text-zinc-400 text-sm mb-3">Paste your API key or OAuth token below. We&apos;ll test it automatically.</p>
               <div className={`flex items-center gap-2 bg-black/40 border ${error ? 'border-red-500/60' : 'border-white/15'} rounded-2xl px-4 py-3 mb-2`}>
                 <Key size={15} className="text-zinc-500 shrink-0" />
                 <input
@@ -232,19 +232,21 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
 
   // Check for custom stored key on mount if present
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('cortexcode_user_api_keys');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.gemini) {
-          setApiKey(parsed.gemini);
+    queueMicrotask(() => {
+      try {
+        const raw = localStorage.getItem('cortexcode_user_api_keys');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.gemini) {
+            setApiKey(parsed.gemini);
+          }
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-    setShowSetup(false);
-    setKeyChecked(true);
+      setShowSetup(false);
+      setKeyChecked(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -269,8 +271,9 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     try {
       const reply = await callGeminiDirect(text, messages, apiKey);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
-    } catch (err: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${err.message || 'AI service temporarily unavailable. Please try again.'}` }]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'AI service temporarily unavailable. Please try again.';
+      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${msg}` }]);
     } finally {
       setIsLoading(false);
     }

@@ -29,6 +29,8 @@ import MultiAgentView from '@/features/workspace/MultiAgentView';
 import SecuritySettingsView from '@/features/workspace/SecuritySettingsView';
 import AssessmentHub from '@/features/assessments/AssessmentHub';
 
+const createId = (prefix: string) => `${prefix}-${Date.now()}`;
+
 function WorkspaceContent() {
   const router = useRouter();
   const toast = useToast();
@@ -65,41 +67,61 @@ function WorkspaceContent() {
 
   // Static defaults — MUST match server render to avoid hydration mismatch.
   // localStorage is loaded in a post-mount useEffect below.
+  type WorkspaceConversation = {
+    id: string;
+    title: string;
+    group: string;
+    model?: string;
+    updatedAt: string;
+  };
+  type WorkspaceMessage = {
+    id: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    timestamp: string;
+    isStreaming?: boolean;
+    isThinking?: boolean;
+    thinkingText?: string;
+    feedback?: 'like' | 'dislike';
+    attachedFiles?: AttachedFile[];
+  };
   const DEFAULT_CONV_ID = 'conv-1';
-  const DEFAULT_WELCOME_MSG = [{
+  const DEFAULT_WELCOME_MSG: WorkspaceMessage[] = [{
     id: 'msg-init-1', role: 'assistant',
     content: `Welcome to CortexCode! 👋 I'm your AI Coding & Learning Assistant.\n\nI can help you with:\n\n- Writing and reviewing code in any language\n- Debugging errors and fixing broken code\n- Explaining programming concepts clearly\n- Generating structured study notes\n- Preparing for technical interviews\n\nSelect a mode below the chat box to tailor my responses, or just start typing your question. What would you like to work on today?`,
     timestamp: 'Just now'
   }];
-  const DEFAULT_CONVERSATIONS: Record<string, unknown[]> = {
+  const DEFAULT_CONVERSATIONS: Record<string, WorkspaceConversation[]> = {
     'Today': [{ id: DEFAULT_CONV_ID, title: 'Welcome Chat', group: 'Today', model: 'CortexCode AI (GPT-4o)', updatedAt: '2024-01-01T00:00:00.000Z' }],
     'Yesterday': [], 'Previous 7 Days': [], 'Previous 30 Days': [], 'Older': []
   };
 
-  const [conversations, setConversations] = useState<Record<string, unknown[]>>(DEFAULT_CONVERSATIONS);
+  const [conversations, setConversations] = useState<Record<string, WorkspaceConversation[]>>(DEFAULT_CONVERSATIONS);
   const [activeConvId, setActiveConvId] = useState<string | null>(DEFAULT_CONV_ID);
-  const [messages, setMessages] = useState<unknown[]>(DEFAULT_WELCOME_MSG);
+  const [messages, setMessages] = useState<WorkspaceMessage[]>(DEFAULT_WELCOME_MSG);
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage AFTER mount (client-only, avoids SSR mismatch)
   useEffect(() => {
-    try {
-      const savedConvs = localStorage.getItem(STORAGE_CONVS_KEY);
-      const savedActiveId = localStorage.getItem(STORAGE_ACTIVE_KEY) || DEFAULT_CONV_ID;
+    queueMicrotask(() => {
+      try {
+        const savedConvs = localStorage.getItem(STORAGE_CONVS_KEY);
+        const savedActiveId = localStorage.getItem(STORAGE_ACTIVE_KEY) || DEFAULT_CONV_ID;
 
-      if (savedConvs) setConversations(JSON.parse(savedConvs));
-      setActiveConvId(savedActiveId);
+        if (savedConvs) setConversations(JSON.parse(savedConvs));
+        setActiveConvId(savedActiveId);
 
-      const savedMsgs = localStorage.getItem(msgKey(savedActiveId));
-      if (savedMsgs) {
-        setMessages(JSON.parse(savedMsgs));
-      } else if (savedActiveId === DEFAULT_CONV_ID) {
-        setMessages(DEFAULT_WELCOME_MSG);
-      } else {
-        setMessages([]);
-      }
-    } catch { /* ignore */ }
-    setHydrated(true);
+        const savedMsgs = localStorage.getItem(msgKey(savedActiveId));
+        if (savedMsgs) {
+          setMessages(JSON.parse(savedMsgs));
+        } else if (savedActiveId === DEFAULT_CONV_ID) {
+          setMessages(DEFAULT_WELCOME_MSG);
+        } else {
+          setMessages([]);
+        }
+      } catch { /* ignore */ }
+      setHydrated(true);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -165,32 +187,34 @@ function WorkspaceContent() {
   });
 
   useEffect(() => {
-    if (user) {
-      setUserProfile(prev => ({
-        ...prev,
-        name: user.name || prev.name,
-        email: user.email || prev.email,
-        role: user.role || prev.role
-      }));
-    } else {
-      try {
-        const rawUser = localStorage.getItem('cortexcode_user');
-        if (rawUser) {
-          const u = JSON.parse(rawUser);
-          setUserProfile(prev => ({
-            ...prev,
-            name: u.name || prev.name,
-            email: u.email || prev.email,
-            role: u.role || prev.role
-          }));
-        }
-      } catch { /* ignore */ }
-    }
+    queueMicrotask(() => {
+      if (user) {
+        setUserProfile(prev => ({
+          ...prev,
+          name: user.name || prev.name,
+          email: user.email || prev.email,
+          role: user.role || prev.role
+        }));
+      } else {
+        try {
+          const rawUser = localStorage.getItem('cortexcode_user');
+          if (rawUser) {
+            const u = JSON.parse(rawUser);
+            setUserProfile(prev => ({
+              ...prev,
+              name: u.name || prev.name,
+              email: u.email || prev.email,
+              role: u.role || prev.role
+            }));
+          }
+        } catch { /* ignore */ }
+      }
 
-    try {
-      const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
-      if (rawKeys) setCustomApiKeys(JSON.parse(rawKeys));
-    } catch { /* ignore */ }
+      try {
+        const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
+        if (rawKeys) setCustomApiKeys(JSON.parse(rawKeys));
+      } catch { /* ignore */ }
+    });
   }, [user]);
 
   // Scroll to bottom of chat
@@ -228,20 +252,20 @@ function WorkspaceContent() {
       setMessages(raw ? JSON.parse(raw) : []);
     } catch { setMessages([]); }
 
-    let found: unknown = null;
+    let found: WorkspaceConversation | null = null;
     Object.values(conversations).forEach(list => {
       const match = list.find(c => c.id === id);
       if (match) found = match;
     });
     if (found) {
-      toast.showInfo('Conversation Loaded', `Opened "${(found as unknown).title}"`);
+      toast.showInfo('Conversation Loaded', `Opened "${(found as WorkspaceConversation).title}"`);
     }
   };
 
   // Handle Rename Conversation
   const handleRenameConversation = (id: string, newTitle: string) => {
     setConversations(prev => {
-      const updated: Record<string, unknown[]> = {};
+      const updated: Record<string, WorkspaceConversation[]> = {};
       Object.keys(prev).forEach(group => {
         updated[group] = prev[group].map(c => c.id === id ? { ...c, title: newTitle } : c);
       });
@@ -252,7 +276,7 @@ function WorkspaceContent() {
   // Handle Delete Conversation
   const handleDeleteConversation = (id: string) => {
     setConversations(prev => {
-      const updated: Record<string, unknown[]> = {};
+      const updated: Record<string, WorkspaceConversation[]> = {};
       Object.keys(prev).forEach(group => {
         updated[group] = prev[group].filter(c => c.id !== id);
       });
@@ -285,7 +309,7 @@ function WorkspaceContent() {
     } catch { /* ignore */ }
 
     const freshId = 'conv-1';
-    const freshConvs: Record<string, unknown[]> = {
+    const freshConvs: Record<string, WorkspaceConversation[]> = {
       'Today': [{ id: freshId, title: 'Welcome Chat', group: 'Today', model: selectedModel, updatedAt: new Date().toISOString() }],
       'Yesterday': [], 'Previous 7 Days': [], 'Previous 30 Days': [], 'Older': []
     };
@@ -324,7 +348,7 @@ function WorkspaceContent() {
 
     // If no active conversation, create one
     if (!currentConvId) {
-      const newId = 'conv-' + Date.now();
+      const newId = createId('conv');
       const newConv = {
         id: newId,
         title: 'New Conversation',
@@ -341,14 +365,14 @@ function WorkspaceContent() {
     }
 
     const userMsg = {
-      id: 'msg-' + Date.now(),
+      id: createId('msg'),
       role: 'user' as const,
       content: prompt || `Analyze ${currentFiles.length === 1 ? currentFiles[0].name : `${currentFiles.length} files`}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       attachedFiles: currentFiles.length > 0 ? currentFiles : undefined
     };
 
-    const tempAiMsgId = 'msg-ai-temp-' + Date.now();
+    const tempAiMsgId = createId('msg-ai-temp');
     const tempAiMsg = {
       id: tempAiMsgId,
       role: 'assistant' as const,
@@ -462,7 +486,7 @@ function WorkspaceContent() {
 
   // Start Progressive Typewriter Response Streaming
   const startTypewriterStream = (fullResponse: string, existingAiMsgId?: string) => {
-    const aiMsgId = existingAiMsgId || ('msg-ai-' + Date.now());
+    const aiMsgId = existingAiMsgId || createId('msg-ai');
 
     setMessages(prev => {
       const existingIdx = prev.findIndex(m => m.id === aiMsgId);
@@ -757,7 +781,7 @@ function WorkspaceContent() {
               ].map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setSettingsTab(tab.id as unknown)}
+                  onClick={() => setSettingsTab(tab.id as 'profile' | 'dashboard' | 'apikeys')}
                   className={`px-4 py-2 text-xs font-bold transition border-b-2 ${
                     settingsTab === tab.id
                       ? 'border-purple-500 text-purple-300'

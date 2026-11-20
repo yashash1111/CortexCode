@@ -14,10 +14,10 @@ interface Props {
     durationMinutes: number;
     difficulty: string;
     subjects: string[];
-    questionTypes: string[];
-    sections?: any[];
+    questionTypes?: string[];
+    sections?: Array<{ id?: string; title?: string; name?: string; questionCount?: number; durationMinutes?: number }>;
     totalPoints?: number;
-    questions?: any[];
+    questions?: Array<{ points?: number }>;
   };
   onStartTest: () => void;
   onBack: () => void;

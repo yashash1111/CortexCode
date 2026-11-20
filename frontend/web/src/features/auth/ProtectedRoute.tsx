@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import WorkspaceLoader from '@/features/workspace/WorkspaceLoader';
 
+const emptySubscribe = () => () => {};
+
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, setUserProfile } = useAuth();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   useEffect(() => {
-    setMounted(true);
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('cortexcode_user');
       if (!stored && !user) {
