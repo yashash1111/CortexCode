@@ -7,7 +7,7 @@ import {
   Code2, ExternalLink, RefreshCw, UserCheck, BarChart3, HelpCircle
 } from 'lucide-react';
 
-interface Props {
+export interface TestResultProps {
   result: {
     id?: string;
     sessionId?: string;
@@ -19,7 +19,7 @@ interface Props {
     codingScore: number;
     subjectiveScore: number;
     comprehensionScore: number;
-    sectionScores?: Record<string, any>;
+    sectionScores?: Record<string, unknown>;
     subjectBreakdown?: Record<string, number>;
     topicAnalysis?: Array<{
       topic: string;
@@ -106,12 +106,12 @@ interface Props {
       isCorrect: boolean;
       selectedOption?: string;
       selectedOptions?: string[];
-      correctAnswer: any;
+      correctAnswer: unknown;
       marksAwarded: number;
       maxMarks: number;
       explanation?: string;
     }>;
-    auditTrail?: Array<{ event: string; timestamp: string; actor: string; details?: any }>;
+    auditTrail?: Array<{ event: string; timestamp: string; actor: string; details?: Record<string, unknown> }>;
     humanReviews?: Array<{
       reviewerId: string;
       reviewerName: string;
@@ -131,7 +131,7 @@ interface Props {
   onPracticeTopic?: (topic: string) => void;
 }
 
-export default function TestResultView({ result, onReturnToHub, onPracticeTopic }: Props) {
+export default function TestResultView({ result, onReturnToHub, onPracticeTopic }: TestResultProps) {
   const [activeTab, setActiveTab] = useState<'scorecard' | 'questions' | 'path' | 'integrity'>('scorecard');
   const [expandedQuestions, setExpandedQuestions] = useState<Record<string, boolean>>({});
 
@@ -215,7 +215,7 @@ export default function TestResultView({ result, onReturnToHub, onPracticeTopic 
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'scorecard' | 'questions' | 'path' | 'integrity')}
               className={`px-4 py-2 font-semibold border-b-2 transition ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-white'
@@ -379,7 +379,7 @@ export default function TestResultView({ result, onReturnToHub, onPracticeTopic 
 
                     <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-neutral-400">
                       <div>Your Answer: <strong className="text-white">{mcq.selectedOption || (mcq.selectedOptions?.join(', ')) || 'None'}</strong></div>
-                      <div>Correct Answer: <strong className="text-emerald-400">{Array.isArray(mcq.correctAnswer) ? mcq.correctAnswer.join(', ') : mcq.correctAnswer}</strong></div>
+                      <div>Correct Answer: <strong className="text-emerald-400">{Array.isArray(mcq.correctAnswer) ? mcq.correctAnswer.join(', ') : String(mcq.correctAnswer ?? '')}</strong></div>
                     </div>
 
                     {mcq.explanation && (

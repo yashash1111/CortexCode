@@ -38,12 +38,14 @@ export default function MemoryManager() {
   const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cortexcode_user_memories');
-      if (saved) setMemories(JSON.parse(saved));
-      const enabled = localStorage.getItem('cortexcode_memory_enabled');
-      if (enabled !== null) setMemoryEnabled(enabled === 'true');
-    } catch { /* ignore */ }
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem('cortexcode_user_memories');
+        if (saved) setMemories(JSON.parse(saved));
+        const enabled = localStorage.getItem('cortexcode_memory_enabled');
+        if (enabled !== null) setMemoryEnabled(enabled === 'true');
+      } catch { /* ignore */ }
+    });
   }, []);
 
   const saveMemories = (updated: MemoryItem[]) => {

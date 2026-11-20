@@ -12,19 +12,30 @@ import { getApiUrl } from '@/lib/apiConfig';
 interface Question {
   id: string;
   sectionId?: string;
-  type: 'MCQ' | 'CODING' | 'SUBJECTIVE' | 'COMPREHENSION';
-  prompt: string;
+  type: string;
+  prompt?: string;
+  title?: string;
+  description?: string;
   subject?: string;
   topic?: string;
   difficulty?: string;
   points: number;
   options?: { id: string; text: string }[];
   multipleCorrect?: boolean;
-  starterCode?: Record<string, string>;
+  starterCode?: string | Record<string, string>;
   constraints?: string[];
   examples?: { input: string; output: string; explanation?: string }[];
-  testCases?: { input: string; output: string }[];
+  testCases?: { input: string; expectedOutput?: string; output?: string }[];
   passage?: string;
+}
+
+interface AnswerEntry {
+  selectedOption?: string;
+  selectedOptions?: string[];
+  codeAnswer?: string;
+  subjectiveAnswer?: string;
+  isMarkedForReview?: boolean;
+  [key: string]: unknown;
 }
 
 interface Props {
@@ -32,16 +43,16 @@ interface Props {
     id: string;
     title: string;
     durationMinutes: number;
-    sections?: any[];
+    sections?: unknown[];
     canNavigateBackwards?: boolean;
     questions: Question[];
   };
   sessionId: string;
-  initialSession?: any;
-  initialAnswers?: Record<string, any>;
+  initialSession?: { expiresAt?: string; currentQuestionIndex?: number };
+  initialAnswers?: Record<string, AnswerEntry>;
   videoStream?: MediaStream | null;
   screenStream?: MediaStream | null;
-  onSubmit: (answers: any[]) => void;
+  onSubmit: (answers: unknown[]) => void;
 }
 
 export default function TestTakingWorkbench({
@@ -54,11 +65,11 @@ export default function TestTakingWorkbench({
   onSubmit
 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(initialSession?.currentQuestionIndex || 0);
-  const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers);
+  const [answers, setAnswers] = useState<Record<string, AnswerEntry>>(initialAnswers);
 
   // Coding State
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
-  const [codeOutput, setCodeOutput] = useState<any | null>(null);
+  const [codeOutput, setCodeOutput] = useState<{ passed?: number; total?: number; passedCount?: number; totalCount?: number; output?: string; status?: string; details?: Array<{ input: string; expected: string; actual: string; passed: boolean }>; stdout?: string; stderr?: string; executionTimeMs?: number } | null>(null);
   const [isRunningCode, setIsRunningCode] = useState(false);
 
   // Server-Authoritative Timer State
@@ -83,6 +94,7 @@ export default function TestTakingWorkbench({
   const [violationType, setViolationType] = useState<'FULLSCREEN_EXIT' | 'TAB_SWITCH'>('FULLSCREEN_EXIT');
   const [isTerminated, setIsTerminated] = useState(false);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
+  const handleFinalSubmitRef = useRef<() => void>(() => {});
   const [screenShareLost, setScreenShareLost] = useState(false);
 
   const pipVideoRef = useRef<HTMLVideoElement>(null);
@@ -120,7 +132,7 @@ export default function TestTakingWorkbench({
   const handleReEnableScreenShare = async () => {
     try {
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { displaySurface: 'monitor' } as any,
+        video: { displaySurface: 'monitor' } as MediaTrackConstraints,
         audio: false
       });
       internalScreenStreamRef.current = displayStream;
@@ -156,7 +168,7 @@ export default function TestTakingWorkbench({
             setTerminationReason(session.terminationReason || 'Assessment terminated by proctoring engine.');
           }
           if (isExpired) {
-            handleFinalSubmit();
+            handleFinalSubmitRef.current();
           }
         }
       } catch {
@@ -176,7 +188,7 @@ export default function TestTakingWorkbench({
           clearInterval(interval);
           if (!autoSubmitted) {
             setAutoSubmitted(true);
-            handleFinalSubmit();
+            handleFinalSubmitRef.current();
           }
           return 0;
         }
@@ -262,7 +274,7 @@ export default function TestTakingWorkbench({
   const currentAns = answers[currentQ?.id] || {};
 
   // Auto-Save Answer with debounce & local backup
-  const saveAnswer = (questionId: string, delta: any) => {
+  const saveAnswer = (questionId: string, delta: Partial<AnswerEntry>) => {
     setSaveStatus('saving');
     const updated = {
       ...answers[questionId],
@@ -293,7 +305,8 @@ export default function TestTakingWorkbench({
     setIsRunningCode(true);
     setCodeOutput(null);
 
-    const code = currentAns.codeAnswer ?? currentQ.starterCode?.[selectedLanguage] ?? '// Write your solution here';
+    const starter = typeof currentQ.starterCode === 'string' ? currentQ.starterCode : currentQ.starterCode?.[selectedLanguage];
+    const code = currentAns.codeAnswer ?? starter ?? '// Write your solution here';
 
     try {
       const res = await axios.post(`${getApiUrl()}/api/assessments/sessions/${sessionId}/code/run`, {
@@ -315,6 +328,8 @@ export default function TestTakingWorkbench({
   };
 
   const handleFinalSubmit = () => {
+    // Sync ref for early session-restore expiration checks
+    handleFinalSubmitRef.current = handleFinalSubmit;
     const answersArray = Object.entries(answers).map(([qId, val]) => ({
       questionId: qId,
       ...val
@@ -328,11 +343,11 @@ export default function TestTakingWorkbench({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const answeredCount = Object.values(answers).filter((a: any) =>
+  const answeredCount = Object.values(answers as Record<string, AnswerEntry>).filter((a) =>
     a.selectedOption || (a.selectedOptions && a.selectedOptions.length > 0) || a.codeAnswer || a.subjectiveAnswer
   ).length;
 
-  const markedCount = Object.values(answers).filter((a: any) => a.isMarkedForReview).length;
+  const markedCount = Object.values(answers as Record<string, AnswerEntry>).filter((a) => a.isMarkedForReview).length;
   const totalViolations = fullscreenExitCount + tabSwitchCount;
 
   return (
@@ -492,7 +507,7 @@ export default function TestTakingWorkbench({
                   </div>
 
                   <textarea
-                    value={currentAns.codeAnswer ?? currentQ.starterCode?.[selectedLanguage] ?? '// Write your solution here\n'}
+                    value={currentAns.codeAnswer ?? (typeof currentQ.starterCode === 'string' ? currentQ.starterCode : currentQ.starterCode?.[selectedLanguage]) ?? '// Write your solution here\n'}
                     onChange={e => saveAnswer(currentQ.id, { codeAnswer: e.target.value, codeLanguage: selectedLanguage })}
                     rows={12}
                     className="w-full p-3.5 bg-[#0d0d0d] border border-[#262626] rounded-b-lg font-mono text-xs text-emerald-400 outline-none focus:border-neutral-700 resize-y"
@@ -551,7 +566,7 @@ export default function TestTakingWorkbench({
               <div className="flex items-center justify-between pt-6 border-t border-[#262626]">
                 <button
                   type="button"
-                  onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                  onClick={() => setCurrentIndex((prev: number) => Math.max(0, prev - 1))}
                   disabled={currentIndex === 0}
                   className="px-4 py-2 bg-[#171717] hover:bg-[#222] disabled:opacity-30 border border-[#262626] rounded text-xs font-semibold text-neutral-300 transition flex items-center gap-1.5"
                 >
@@ -565,7 +580,7 @@ export default function TestTakingWorkbench({
 
                 <button
                   type="button"
-                  onClick={() => setCurrentIndex(prev => Math.min(assessment.questions.length - 1, prev + 1))}
+                  onClick={() => setCurrentIndex((prev: number) => Math.min(assessment.questions.length - 1, prev + 1))}
                   disabled={currentIndex === assessment.questions.length - 1}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white rounded text-xs font-semibold transition flex items-center gap-1.5"
                 >
@@ -788,7 +803,7 @@ export default function TestTakingWorkbench({
               <button
                 onClick={() => {
                   setShowSubmitModal(false);
-                  handleFinalSubmit();
+                  handleFinalSubmitRef.current();
                 }}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition flex items-center gap-1.5"
               >

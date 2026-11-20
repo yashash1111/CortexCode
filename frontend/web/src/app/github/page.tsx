@@ -18,10 +18,11 @@ import {
   Plus,
 } from 'lucide-react';
 import { DashboardShell } from '@/components/layout/DashboardShell';
+import { getErrorMessage } from '@/lib/errorUtils';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/layout/StateCards';
 import { apiClient } from '@/lib/apiClient';
 import { useAuth } from '@/providers/AuthProvider';
-import { RepoGraphViewer } from '@/features/github/RepoGraphViewer';
+import { RepoGraphViewer, type GraphFile, type GraphEdge } from '@/features/github/RepoGraphViewer';
 import { PRReviewerTab } from '@/features/pr-review/PRReviewerTab';
 
 interface WorkspaceOption {
@@ -70,11 +71,22 @@ export default function GitHubPage() {
       content: string;
       score: number;
     }>;
-    usage?: any;
+    usage?: { provider?: string; model?: string; totalTokens?: number; latencyMs?: number };
   } | null>(null);
-  const [selectedSource, setSelectedSource] = useState<any | null>(null);
+  const [selectedSource, setSelectedSource] = useState<{
+    id?: string;
+    filePath: string;
+    symbolName?: string | null;
+    startLine: number;
+    endLine: number;
+    content: string;
+    score: number;
+  } | null>(null);
 
-  const [graphData, setGraphData] = useState<{ files: any[]; edges: any[] }>({ files: [], edges: [] });
+  const [graphData, setGraphData] = useState<{
+    files: GraphFile[];
+    edges: GraphEdge[];
+  }>({ files: [], edges: [] });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,19 +113,21 @@ export default function GitHubPage() {
       if (repoList.length > 0 && !selectedRepoId) {
         setSelectedRepoId(repoList[0].id);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || err?.message || 'Failed to load GitHub intelligence');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load GitHub intelligence'));
     } finally {
       setLoading(false);
     }
   }, [workspaceId, selectedRepoId]);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      loadAll();
-    } else if (!authLoading) {
-      setLoading(false);
-    }
+    queueMicrotask(() => {
+      if (!authLoading && user) {
+        void loadAll();
+      } else if (!authLoading) {
+        setLoading(false);
+      }
+    });
   }, [authLoading, user, loadAll]);
 
   useEffect(() => {
@@ -167,8 +181,8 @@ export default function GitHubPage() {
       setBranchInput('');
       if (created?.id) setSelectedRepoId(created.id);
       await loadAll();
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to connect repository');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to connect repository'));
     } finally {
       setConnecting(false);
     }
@@ -182,8 +196,8 @@ export default function GitHubPage() {
         syncGitHub: true,
       });
       await loadAll();
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to start repository indexing');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to start repository indexing'));
     }
   };
 
@@ -192,8 +206,8 @@ export default function GitHubPage() {
       await apiClient.delete(`/api/github-intel/repos/${repoId}`);
       if (selectedRepoId === repoId) setSelectedRepoId('');
       await loadAll();
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Failed to remove repository');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to remove repository'));
     }
   };
 
@@ -211,8 +225,8 @@ export default function GitHubPage() {
       const data = res.data?.data;
       setQaResult(data);
       setSelectedSource(data?.sources?.[0] || null);
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || 'Codebase Q&A failed');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Codebase Q&A failed'));
     } finally {
       setQaLoading(false);
     }

@@ -33,12 +33,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load local user on mount (prevents SSR hydration mismatch)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('cortexcode_user');
-      if (stored) {
-        setUser(JSON.parse(stored));
-      }
-    } catch { /* ignore */ }
+    queueMicrotask(() => {
+      try {
+        const stored = localStorage.getItem('cortexcode_user');
+        if (stored) {
+          setUser(JSON.parse(stored));
+        }
+      } catch { /* ignore */ }
+    });
   }, []);
 
   // Verify existing session on application startup with 2.5s timeout safeguard
@@ -73,7 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    checkAuth();
+    queueMicrotask(() => {
+      void checkAuth();
+    });
   }, [checkAuth]);
 
   const login = async (email: string, password: string) => {

@@ -12,7 +12,7 @@ interface Props {
     title: string;
     durationMinutes: number;
     difficulty: string;
-    questions?: any[];
+    questions?: unknown[];
   };
   onProceedToTest: (streams: { videoStream: MediaStream | null; screenStream: MediaStream | null }) => void;
   onCancel: () => void;
@@ -61,7 +61,7 @@ export default function ProctoringCheckView({ assessment, onProceedToTest, onCan
       // Setup audio analyzer
       const audioTrack = stream.getAudioTracks()[0];
       if (audioTrack) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const audioCtx = new AudioCtx();
         audioContextRef.current = audioCtx;
         const analyser = audioCtx.createAnalyser();
@@ -84,7 +84,7 @@ export default function ProctoringCheckView({ assessment, onProceedToTest, onCan
         };
         updateMeter();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[Proctoring Hardware Notice]:', err);
       // Create fallback video simulation canvas if hardware blocked
       createFallbackCameraStream();
@@ -143,7 +143,7 @@ export default function ProctoringCheckView({ assessment, onProceedToTest, onCan
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           displaySurface: 'monitor'
-        } as any,
+        } as MediaTrackConstraints,
         audio: false
       });
 
@@ -165,7 +165,9 @@ export default function ProctoringCheckView({ assessment, onProceedToTest, onCan
   };
 
   useEffect(() => {
-    initializeMedia();
+    queueMicrotask(() => {
+      void initializeMedia();
+    });
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);

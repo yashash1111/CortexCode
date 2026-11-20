@@ -40,7 +40,7 @@ export default function CommandPalette({ isOpen, onClose, onSelectTab }: Props) 
 
   if (!isOpen) return null;
 
-  const COMMANDS: { id: WorkspaceTab; title: string; desc: string; icon: any; category: string }[] = [
+  const COMMANDS: { id: WorkspaceTab; title: string; desc: string; icon: React.ComponentType<{ size?: number; className?: string }>; category: string }[] = [
     { id: 'chat', title: 'AI Chat Assistant', desc: 'Ask questions, debug & stream answers', icon: MessageSquare, category: 'AI Tools' },
     { id: 'study', title: 'AI Study Mode', desc: 'Upload materials, flashcards & MCQs', icon: BookOpen, category: 'Learning' },
     { id: 'goals', title: 'Goal Roadmap Tracker', desc: 'Track multi-day roadmaps & daily tasks', icon: Target, category: 'Planning' },
@@ -81,7 +81,7 @@ export default function CommandPalette({ isOpen, onClose, onSelectTab }: Props) 
         {/* Command List */}
         <div className="max-h-80 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
           {filtered.length === 0 ? (
-            <div className="py-8 text-center text-xs text-neutral-500">No commands found matching "{query}".</div>
+            <div className="py-8 text-center text-xs text-neutral-500">No commands found matching &quot;{query}&quot;.</div>
           ) : (
             filtered.map(cmd => {
               const Icon = cmd.icon;

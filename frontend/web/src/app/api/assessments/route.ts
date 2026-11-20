@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DEFAULT_ASSESSMENTS, type Assessment } from '@/features/assessments/assessmentStorage';
 
 // In-memory store for deployed instance runtime
-let inMemoryAssessments: Assessment[] = [...DEFAULT_ASSESSMENTS];
+const inMemoryAssessments: Assessment[] = [...DEFAULT_ASSESSMENTS];
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       canNavigateBackwards: body.canNavigateBackwards ?? true,
       questions: body.questions || [],
       status: body.status || 'PUBLISHED',
-      totalPoints: body.totalPoints || (body.questions?.reduce((acc: number, q: any) => acc + (q.points || 10), 0) || 100),
+      totalPoints: body.totalPoints || (body.questions?.reduce((acc: number, q: { points?: number }) => acc + (q.points || 10), 0) || 100),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
         message: 'Assessment saved and published successfully.'
       }
     });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: { message: err.message } }, { status: 400 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to create assessment';
+    return NextResponse.json({ success: false, error: { message } }, { status: 400 });
   }
 }

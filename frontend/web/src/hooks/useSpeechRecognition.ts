@@ -17,19 +17,38 @@ interface UseSpeechRecognitionReturn {
 }
 
 export function useSpeechRecognition(): UseSpeechRecognitionReturn {
-  const [isSupported, setIsSupported] = useState(false);
   const [state, setState] = useState<SpeechState>('idle');
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const [isSupported] = useState(() =>
+    typeof window !== 'undefined' &&
+    Boolean(
+      (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+    )
+  );
+  interface SpeechRec {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    maxAlternatives: number;
+    onstart: (() => void) | null;
+    onresult: ((event: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+    onend: (() => void) | null;
+    onerror: ((event: { error: string }) => void) | null;
+    start: () => void;
+    stop: () => void;
+    abort: () => void;
+  }
+  const recognitionRef = useRef<SpeechRec | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    setIsSupported(!!SpeechRecognition);
+      (window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec }).SpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec }).webkitSpeechRecognition;
 
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
@@ -43,7 +62,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
         setError(null);
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event) => {
         let interim = '';
         let final = '';
 
@@ -67,7 +86,7 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
         setState(prev => (prev === 'listening' || prev === 'processing' ? 'idle' : prev));
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event) => {
         const errorMessages: Record<string, string> = {
           'no-speech': "No speech detected. Please speak louder into your microphone.",
           'audio-capture': 'Microphone not accessible. Please check your system settings.',

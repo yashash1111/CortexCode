@@ -64,16 +64,18 @@ export default function GoalTracker() {
   const [newDays, setNewDays] = useState(60);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('cortexcode_goals');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.length > 0) {
-          setGoals(parsed);
-          setActiveGoalId(parsed[0].id);
+    queueMicrotask(() => {
+      try {
+        const saved = localStorage.getItem('cortexcode_goals');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0) {
+            setGoals(parsed);
+            setActiveGoalId(parsed[0].id);
+          }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
+    });
   }, []);
 
   const saveGoals = (updated: GoalItem[]) => {

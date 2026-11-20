@@ -164,7 +164,7 @@ export default function Home() {
 
                 <div className="bg-black/60 border border-white/10 rounded-2xl p-4 font-mono text-xs text-zinc-300 space-y-3 mb-6">
                   <div className="flex items-center gap-2 text-zinc-300 font-semibold">
-                    <Terminal size={13} /> User: "How does JWT token verification work?"
+                    <Terminal size={13} /> User: &quot;How does JWT token verification work?&quot;
                   </div>
                   <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-zinc-200 font-sans leading-relaxed">
                     <strong className="text-white block mb-1">CortexCode AI:</strong>

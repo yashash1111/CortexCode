@@ -54,10 +54,11 @@ export async function signInWithGoogleFirebase() {
       },
       token: idToken
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const firebaseErr = error as { code?: string; message?: string };
     if (
-      error?.code === 'auth/unauthorized-domain' ||
-      String(error?.message).includes('unauthorized-domain') ||
+      firebaseErr?.code === 'auth/unauthorized-domain' ||
+      String(firebaseErr?.message).includes('unauthorized-domain') ||
       String(error).includes('unauthorized-domain')
     ) {
       let email = 'user.google@gmail.com';
@@ -123,10 +124,11 @@ export async function signInWithGitHubFirebase() {
       },
       token: idToken
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const firebaseErr = error as { code?: string; message?: string };
     if (
-      error?.code === 'auth/unauthorized-domain' ||
-      String(error?.message).includes('unauthorized-domain') ||
+      firebaseErr?.code === 'auth/unauthorized-domain' ||
+      String(firebaseErr?.message).includes('unauthorized-domain') ||
       String(error).includes('unauthorized-domain')
     ) {
       let email = 'developer.github@gmail.com';

@@ -36,7 +36,7 @@ export default function WorkspaceDashboard({ onNavigateTab, userName = 'Develope
               <span>New Chat</span>
             </button>
             <button
-              onClick={() => onNavigateTab('codelab')}
+              onClick={() => onNavigateTab('codelab' as WorkspaceTab)}
               className="px-3.5 py-1.5 bg-[#171717] hover:bg-[#202020] border border-[#262626] text-neutral-200 font-semibold text-xs rounded transition flex items-center gap-1.5"
             >
               <Code2 size={14} className="text-blue-400" />
@@ -78,7 +78,7 @@ export default function WorkspaceDashboard({ onNavigateTab, userName = 'Develope
           
           {/* Card 1: Memory */}
           <div
-            onClick={() => onNavigateTab('memory')}
+            onClick={() => onNavigateTab('memory' as WorkspaceTab)}
             className="p-4 bg-[#121212] border border-[#262626] hover:border-neutral-700 rounded-lg cursor-pointer transition group flex flex-col justify-between"
           >
             <div>

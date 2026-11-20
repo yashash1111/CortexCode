@@ -22,10 +22,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: { content }
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to generate response';
     return NextResponse.json({
       success: false,
-      error: { message: err.message || 'Failed to generate response' }
+      error: { message }
     }, { status: 500 });
   }
 }

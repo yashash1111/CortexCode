@@ -121,7 +121,7 @@ export default function StudyMode() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as unknown)}
+              onClick={() => setActiveTab(tab.id as 'flashcards' | 'quiz' | 'plan')}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold border-b-2 transition ${
                 isActive
                   ? 'border-blue-500 text-white bg-[#121212]'

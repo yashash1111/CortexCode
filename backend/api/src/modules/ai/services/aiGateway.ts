@@ -290,16 +290,82 @@ export class AIGateway {
 
   static async generate(req: AIGatewayRequest): Promise<AIGatewayResponse> {
     const sanitizedMessages = this.sanitizeMessages(req.messages);
-    const providers = this.resolveProviderOrder(req.provider, req.userKeys);
-    if (providers.length === 0) {
-      throw new Error('No AI provider API keys are configured on the server.');
-    }
-
     const temperature = req.temperature ?? 0.7;
     const maxTokens = req.maxTokens ?? 2048;
     const responseFormat = req.responseFormat ?? 'text';
     const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const requestType = req.requestType || (responseFormat === 'json' ? 'json' : 'chat');
+
+    if (process.env.AI_MOCK_MODE === 'true') {
+      const start = Date.now();
+      const lastUser = [...sanitizedMessages].reverse().find((m) => m.role === 'user')?.content || '';
+      let parsedJson: any;
+      let content: string;
+
+      if (requestType === 'eval_judge') {
+        parsedJson = {
+          contextRelevance: 0.92,
+          answerFaithfulness: 0.95,
+          citationPrecision: 0.9,
+          reasoning: 'Deterministic mock evaluation: answer is grounded in retrieved sources.',
+        };
+        content = JSON.stringify(parsedJson);
+      } else if (requestType === 'eval_dataset_gen') {
+        parsedJson = {
+          items: [
+            {
+              question: 'What is described in the indexed document?',
+              expectedSource: 'document',
+              groundTruth: 'Grounded summary from indexed workspace chunk.',
+            },
+          ],
+        };
+        content = JSON.stringify(parsedJson);
+      } else if (responseFormat === 'json') {
+        parsedJson = { ok: true, summary: 'Deterministic mock JSON response' };
+        content = JSON.stringify(parsedJson);
+      } else {
+        content = `Deterministic grounded response for "${lastUser.slice(0, 120)}" [1].`;
+      }
+
+      const inputTokens = approxTokens(sanitizedMessages.map((x) => x.content).join(' '));
+      const outputTokens = approxTokens(content);
+      const totalTokens = inputTokens + outputTokens;
+      const latencyMs = Date.now() - start;
+
+      await persistUsageLog({
+        userId: req.userId,
+        workspaceId: req.workspaceId,
+        provider: 'mock',
+        model: 'mock-deterministic-v1',
+        requestType,
+        latencyMs,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        usageEstimated: true,
+        estimatedCost: 0,
+        status: 'success',
+      });
+
+      return {
+        content,
+        ...(parsedJson !== undefined ? { json: parsedJson } : {}),
+        provider: 'mock',
+        model: 'mock-deterministic-v1',
+        latencyMs,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        usageEstimated: true,
+        estimatedCost: 0,
+      };
+    }
+
+    const providers = this.resolveProviderOrder(req.provider, req.userKeys);
+    if (providers.length === 0) {
+      throw new Error('No AI provider API keys are configured on the server.');
+    }
 
     const start = Date.now();
     const errors: string[] = [];

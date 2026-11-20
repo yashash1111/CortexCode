@@ -38,10 +38,11 @@ export async function POST(
         }
       }
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to process message';
     return NextResponse.json({
       success: false,
-      error: { message: err.message || 'Failed to process message' }
+      error: { message }
     }, { status: 500 });
   }
 }

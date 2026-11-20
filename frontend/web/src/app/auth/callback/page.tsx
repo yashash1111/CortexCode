@@ -11,22 +11,19 @@ function CallbackContent() {
   const [status, setStatus] = useState('Authenticating with OAuth provider...');
 
   useEffect(() => {
-    handleOAuthCallback();
-  }, []);
+    const handleOAuthCallback = async () => {
+      const provider = searchParams.get('provider') || 'github';
+      const code = searchParams.get('code');
 
-  const handleOAuthCallback = async () => {
-    const provider = searchParams.get('provider') || 'github';
-    const code = searchParams.get('code');
-
-    try {
-      setStatus(`Verifying ${provider.toUpperCase()} credentials in real-time...`);
-
-      // Try backend OAuth token exchange
       try {
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/oauth/callback`, {
-          provider,
-          code
-        });
+        setStatus(`Verifying ${provider.toUpperCase()} credentials in real-time...`);
+
+        // Try backend OAuth token exchange
+        try {
+          const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/oauth/callback`, {
+            provider,
+            code
+          });
 
         if (response.data.success) {
           localStorage.setItem('accessToken', response.data.data.accessToken);
@@ -64,7 +61,9 @@ function CallbackContent() {
       setStatus('Real-time login complete! Redirecting to workspace...');
       setTimeout(() => router.push('/workspace'), 1000);
     }
-  };
+    };
+    handleOAuthCallback();
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-6 font-sans">

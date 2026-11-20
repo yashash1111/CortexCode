@@ -8,15 +8,40 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getApiUrl } from '@/lib/apiConfig';
-import { publishAssessmentInStorage, archiveAssessmentInStorage, deleteAssessmentInStorage } from './assessmentStorage';
+import { publishAssessmentInStorage, archiveAssessmentInStorage, deleteAssessmentInStorage, type Assessment } from './assessmentStorage';
+
+interface AnalyticsQuestion {
+  questionId: string;
+  order: number;
+  type: string;
+  subject: string;
+  topic: string;
+  promptExcerpt: string;
+  attempts: number;
+  correctCount: number;
+  successRate: number;
+  qualityFlag?: string | null;
+}
+
+interface AssessmentAnalytics {
+  assessmentId: string;
+  assessmentTitle: string;
+  totalCandidates: number;
+  completedCount: number;
+  completionRate: number;
+  averageScore: number;
+  averageTimeMinutes: number;
+  sectionBreakdown?: Record<string, number>;
+  questionAnalytics?: AnalyticsQuestion[];
+}
 
 interface Props {
-  assessments: any[];
+  assessments: Assessment[];
   onRefresh: () => void;
   onCreateNew: () => void;
-  onEditAssessment: (assessment: any) => void;
-  onPreviewAssessment: (assessment: any) => void;
-  onOpenAnalytics?: (assessment: any) => void;
+  onEditAssessment: (assessment: Assessment) => void;
+  onPreviewAssessment: (assessment: Assessment) => void;
+  onOpenAnalytics?: (assessment: Assessment) => void;
 }
 
 export default function CreatorManageView({
@@ -32,8 +57,8 @@ export default function CreatorManageView({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Analytics Modal State
-  const [selectedAnalyticsAssessment, setSelectedAnalyticsAssessment] = useState<any | null>(null);
-  const [analyticsData, setAnalyticsData] = useState<any | null>(null);
+  const [selectedAnalyticsAssessment, setSelectedAnalyticsAssessment] = useState<Assessment | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AssessmentAnalytics | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
   const filteredAssessments = assessments.filter(a => {
@@ -86,7 +111,7 @@ export default function CreatorManageView({
     }
   };
 
-  const handleViewAnalytics = async (assessment: any) => {
+  const handleViewAnalytics = async (assessment: Assessment) => {
     setSelectedAnalyticsAssessment(assessment);
     setLoadingAnalytics(true);
     try {
@@ -104,13 +129,13 @@ export default function CreatorManageView({
         completionRate: 92,
         averageScore: 82.4,
         averageTimeMinutes: 48,
-        questionAnalytics: (assessment.questions || []).map((q: any, idx: number) => ({
+        questionAnalytics: (assessment.questions || []).map((q, idx: number) => ({
           questionId: q.id,
           order: idx + 1,
           type: q.type,
           subject: q.subject || 'CS',
           topic: q.topic || 'Core',
-          promptExcerpt: q.prompt ? q.prompt.slice(0, 60) + '...' : 'Question',
+          promptExcerpt: q.description ? q.description.slice(0, 60) + '...' : q.title || 'Question',
           attempts: 22,
           correctCount: idx === 0 ? 20 : idx === 1 ? 18 : 14,
           successRate: idx === 0 ? 91 : idx === 1 ? 82 : 64,
@@ -395,7 +420,7 @@ export default function CreatorManageView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#262626] text-neutral-300 text-xs font-mono">
-                    {analyticsData.questionAnalytics?.map((qa: any) => (
+                    {analyticsData.questionAnalytics?.map((qa: AnalyticsQuestion) => (
                       <tr key={qa.questionId} className="hover:bg-[#1a1a1a]">
                         <td className="p-2.5 font-bold text-white">#{qa.order}</td>
                         <td className="p-2.5">

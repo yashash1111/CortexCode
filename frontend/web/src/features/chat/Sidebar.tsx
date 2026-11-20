@@ -16,7 +16,7 @@ interface Conversation {
 }
 
 interface SidebarProps {
-  conversations: Record<string, unknown[]>;
+  conversations: Record<string, Conversation[]>;
   activeConvId: string | null;
   onSelectConversation: (id: string) => void;
   onNewChat: () => void;
@@ -61,7 +61,7 @@ export default function Sidebar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
 
-  const handleStartRename = (conv: unknown, e: React.MouseEvent) => {
+  const handleStartRename = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(conv.id);
     setEditTitle(conv.title);
@@ -217,7 +217,7 @@ export default function Sidebar({
                               autoFocus
                               value={editTitle}
                               onChange={(e) => setEditTitle(e.target.value)}
-                              onBlur={(e) => handleSaveRename(conv.id, e as unknown)}
+                              onBlur={(e) => handleSaveRename(conv.id, e as unknown as React.FormEvent)}
                               className="w-full px-2 py-1 bg-black border border-purple-500 rounded text-xs text-white outline-none"
                             />
                           </form>

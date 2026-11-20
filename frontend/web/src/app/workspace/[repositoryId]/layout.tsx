@@ -21,25 +21,24 @@ export default function RepositoryLayout({
   const [indexSuccess, setIndexSuccess] = useState(false);
 
   useEffect(() => {
+    const fetchRepoDetails = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        // No token = demo mode, skip API call entirely
+        if (!token || token === 'null' || token === 'undefined') return;
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/repositories/${unwrappedParams.repositoryId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.data?.success) {
+          setRepoName(res.data.data.name || 'Repository');
+        }
+      } catch {
+        // Silently ignore — demo workspace doesn't require auth
+      }
+    };
     fetchRepoDetails();
   }, [unwrappedParams.repositoryId]);
-
-  const fetchRepoDetails = async () => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      // No token = demo mode, skip API call entirely
-      if (!token || token === 'null' || token === 'undefined') return;
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/repositories/${unwrappedParams.repositoryId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.data?.success) {
-        setRepoName(res.data.data.name || 'Repository');
-      }
-    } catch {
-      // Silently ignore — demo workspace doesn't require auth
-    }
-  };
 
   const handleIndexRepo = async () => {
     setIsIndexing(true);

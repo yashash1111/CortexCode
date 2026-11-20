@@ -218,33 +218,43 @@ test('4. SSE Streaming RAG Chat with citations & file serving', async () => {
 });
 
 test('5. Evaluation Engine (LLM-as-a-Judge) persistence & metrics', async () => {
-  const evalRes = await apiReq('/api/docs/evals/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workspaceId,
-      name: 'Phase 2 Automated Eval',
-      cases: [
-        {
-          question: 'What does CortexCode use for authentication tokens?',
-          expectedSource: 'System_Design.pdf',
-          groundTruth: 'JWT access tokens and SHA-256 hashed refresh tokens.',
-        },
-        {
-          question: 'What timeout is enforced on LLM requests?',
-          expectedSource: 'gateway.md',
-          groundTruth: '25 second timeout.',
-        },
-      ],
-    }),
-  });
-  assert.equal(evalRes.status, 201);
-  const evalJson = await evalRes.json();
-  const run = evalJson.data;
-  assert.equal(run.status, 'completed');
-  assert.equal(run.datasetSize, 2);
-  assert.ok(run.metrics.retrievalHitRate >= 0.5);
-  assert.ok(run.cases.length === 2);
+  const prevMockMode = process.env.AI_MOCK_MODE;
+  process.env.AI_MOCK_MODE = 'true';
+  try {
+    const evalRes = await apiReq('/api/docs/evals/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workspaceId,
+        name: 'Phase 2 Automated Eval',
+        cases: [
+          {
+            question: 'What does CortexCode use for authentication tokens?',
+            expectedSource: 'System_Design.pdf',
+            groundTruth: 'JWT access tokens and SHA-256 hashed refresh tokens.',
+          },
+          {
+            question: 'What timeout is enforced on LLM requests?',
+            expectedSource: 'gateway.md',
+            groundTruth: '25 second timeout.',
+          },
+        ],
+      }),
+    });
+    assert.equal(evalRes.status, 201);
+    const evalJson = await evalRes.json();
+    const run = evalJson.data;
+    assert.equal(run.status, 'completed');
+    assert.equal(run.datasetSize, 2);
+    assert.ok(run.metrics.retrievalHitRate >= 0.5);
+    assert.ok(run.cases.length === 2);
+  } finally {
+    if (prevMockMode === undefined) {
+      delete process.env.AI_MOCK_MODE;
+    } else {
+      process.env.AI_MOCK_MODE = prevMockMode;
+    }
+  }
 });
 
 test('6. Document deletion removes document and its KnowledgeChunks', async () => {
