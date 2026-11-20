@@ -8,7 +8,7 @@ CortexCode is a unified developer intelligence platform combining **Docs & Spec 
 
 ```text
 CortexCode/
-├── frontend/web/          # Next.js 16, React 19, TypeScript, Tailwind CSS v4, Recharts
+├── frontend/              # Next.js 16, React 19, TypeScript, Tailwind CSS v4, Recharts
 ├── backend/
 │   ├── api/               # Express.js, TypeScript, Prisma ORM, BullMQ + Redis
 │   └── ai-service/        # Python FastAPI, PyMuPDF, Tree-sitter, Embeddings & LLM
@@ -27,7 +27,7 @@ CortexCode/
    ```
 
 2. **Configure Environment Variables:**
-   Copy `.env.example` to `backend/api/.env`, `backend/ai-service/.env`, and `frontend/web/.env` and set your secrets (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `GEMINI_API_KEY` / `OPENAI_API_KEY`, `AI_SERVICE_TOKEN`).
+   Copy `.env.example` to `backend/api/.env`, `backend/ai-service/.env`, and `frontend/.env` and set your secrets (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `GEMINI_API_KEY` / `OPENAI_API_KEY`, `AI_SERVICE_TOKEN`).
 
 3. **Run Database Migrations:**
    ```bash

@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "frontend/*",
+    "frontend",
     "backend/api"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=frontend/web",
+    "dev:web": "npm run dev --workspace=frontend",
     "dev:api": "npm run dev --workspace=backend/api",
-    "start": "npm run start --workspace=frontend/web",
-    "start:web": "npm run start --workspace=frontend/web",
+    "start": "npm run start --workspace=frontend",
+    "start:web": "npm run start --workspace=frontend",
     "start:api": "npm run start --workspace=backend/api",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces"
