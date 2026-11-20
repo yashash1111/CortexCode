@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { AIGateway, GatewayMessage } from '../../ai/services/aiGateway';
 import { AIService } from '../../ai/services/aiService';
+import { redactSecrets } from '../../ai/services/secretRedactor';
 
 const DEMO_MAX_TURNS = 15;
 
 export class DemoChatController {
   static async chat(req: Request, res: Response) {
     try {
-      const { message, history = [], userKeys = {}, mode = 'chat', model } = req.body;
+      const { message, history = [], mode = 'chat', model } = req.body;
 
       if (!message || typeof message !== 'string' || message.trim() === '') {
         return res.status(400).json({
@@ -38,7 +39,6 @@ export class DemoChatController {
           { role: 'user', content: message.trim() },
         ],
         model,
-        userKeys,
         requestType: `demo_${mode}`,
       });
 
@@ -52,17 +52,24 @@ export class DemoChatController {
         },
       });
     } catch (err: any) {
-      console.error('[DemoChatController] Error:', err.message);
-      return res.status(500).json({
+      const safeMsg = redactSecrets(err?.message || 'Unknown error');
+      console.error('[DemoChatController] Error:', safeMsg);
+      const status = typeof err?.status === 'number' ? err.status : 500;
+      return res.status(status).json({
         success: false,
-        error: { message: "I couldn't generate a response right now. Please try again." },
+        error: {
+          message:
+            status === 429 || status === 503
+              ? safeMsg
+              : 'AI service is temporarily unavailable. Please try again shortly.',
+        },
       });
     }
   }
 
   static async stream(req: Request, res: Response) {
     try {
-      const { message, history = [], userKeys = {}, mode = 'chat', model } = req.body;
+      const { message, history = [], mode = 'chat', model } = req.body;
 
       if (!message || typeof message !== 'string' || message.trim() === '') {
         return res.status(400).json({ success: false, error: { message: 'Message is required.' } });
@@ -87,7 +94,6 @@ export class DemoChatController {
           { role: 'user', content: message.trim() },
         ],
         model,
-        userKeys,
         requestType: `demo_stream_${mode}`,
       })) {
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
@@ -96,9 +102,11 @@ export class DemoChatController {
       res.write('data: [DONE]\n\n');
       res.end();
     } catch (err: any) {
-      console.error('[DemoChatController.stream] Error:', err.message);
+      const safeMsg = redactSecrets(err?.message || 'Stream failed');
+      console.error('[DemoChatController.stream] Error:', safeMsg);
+      const status = typeof err?.status === 'number' ? err.status : 500;
       if (!res.headersSent) {
-        res.status(500).json({ success: false, error: { message: 'Stream failed' } });
+        res.status(status).json({ success: false, error: { message: status === 429 || status === 503 ? safeMsg : 'Stream failed' } });
       } else {
         res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
         res.end();

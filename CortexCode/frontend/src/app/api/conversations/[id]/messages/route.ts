@@ -10,7 +10,6 @@ export async function POST(
     const body = await req.json();
     const content = body.content || body.message || '';
     const mode = body.mode || 'chat';
-    const userKeys = body.userKeys;
 
     if (!content || typeof content !== 'string' || content.trim() === '') {
       return NextResponse.json({
@@ -19,7 +18,7 @@ export async function POST(
       }, { status: 400 });
     }
 
-    const aiContent = await generateAiResponseServer(content.trim(), [], mode, userKeys);
+    const aiContent = await generateAiResponseServer(content.trim(), [], mode);
 
     return NextResponse.json({
       success: true,

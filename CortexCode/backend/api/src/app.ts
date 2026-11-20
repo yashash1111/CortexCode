@@ -22,6 +22,7 @@ import chatRoutes from './modules/chat/routes/chat.routes';
 import jobsRoutes from './modules/observability/routes/jobs.routes';
 import docsRoutes from './modules/docs/routes/docs.routes';
 import githubIntelRoutes from './modules/github/routes/githubIntel.routes';
+import adminAiRoutes from './modules/admin/routes/adminAi.routes';
 
 const app: Application = express();
 
@@ -71,6 +72,7 @@ app.use('/api/assessments', assessmentRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/docs', docsRoutes);
 app.use('/api/github-intel', githubIntelRoutes);
+app.use('/api/admin/ai-providers', adminAiRoutes);
 
 // Real Health Check
 app.get('/health', async (req: Request, res: Response) => {

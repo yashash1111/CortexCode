@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, use } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, Key, ExternalLink, X, Copy, Check, ChevronRight } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 
 import { getApiUrl } from '@/lib/apiConfig';
 
@@ -10,28 +10,15 @@ interface Message {
   content: string;
 }
 
-const SYSTEM_PROMPT = `You are CortexCode AI, a brilliant general-purpose AI assistant with deep software engineering expertise.
-
-CORE RULES:
-1. Always answer the actual question directly. Never say "I evaluated your prompt" or "How can I help you?"
-2. For greetings like "hi" or "hello", respond warmly and naturally like a real assistant would.
-3. For coding requests, give complete runnable code. Never pseudocode unless asked.
-4. For debugging, identify the root cause and give the exact fix.
-5. For general questions, answer them concisely and accurately.
-6. Match the user's language and tone. Be friendly, intelligent, and helpful.
-7. Use conversation history for context on follow-up questions.`;
-
-async function callGeminiDirect(message: string, history: Message[], userApiKey?: string | null): Promise<string> {
-  const userKeys = userApiKey && userApiKey.trim() ? { gemini: userApiKey.trim() } : undefined;
-
+async function callCentralAI(message: string, history: Message[]): Promise<string> {
   try {
     const res = await fetch(`${getApiUrl()}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         message,
         history,
-        userKeys,
         mode: 'chat'
       })
     });
@@ -51,7 +38,6 @@ async function callGeminiDirect(message: string, history: Message[], userApiKey?
     body: JSON.stringify({
       message,
       history,
-      userKeys,
       mode: 'chat'
     })
   });
@@ -61,156 +47,7 @@ async function callGeminiDirect(message: string, history: Message[], userApiKey?
     return data.data.content;
   }
 
-  throw new Error(data.error?.message || 'Cortex AI could not generate a response. Please try again.');
-}
-
-function SetupWizard({ onKeySet }: { onKeySet: (key: string) => void }) {
-  const [step, setStep] = useState(1);
-  const [key, setKey] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  const testAndSave = async () => {
-    if (!key.trim()) return;
-    setTesting(true);
-    setError('');
-    try {
-      const result = await callGeminiDirect('Reply with exactly: CortexCode AI is ready', [], key.trim());
-      if (result) {
-        localStorage.setItem('cortexcode_user_api_keys', JSON.stringify({ gemini: key.trim() }));
-        onKeySet(key.trim());
-      }
-    } catch (e: unknown) {
-      setStep(2);
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      if (msg.includes('expired') || msg.includes('401')) {
-        setError('This token has expired. Please get a fresh one from Google AI Studio or OAuth Playground.');
-      } else if (msg.includes('403') || msg.includes('PERMISSION')) {
-        setError('Permission denied. This credential does not have Gemini API access. Try a different key.');
-      } else if (msg.includes('API_KEY_INVALID') || msg.includes('400')) {
-        setError('Invalid credential. Double-check what you pasted.');
-      } else {
-        setError(`Error: ${msg}`);
-      }
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const copyEnvLine = () => {
-    navigator.clipboard.writeText(`GEMINI_API_KEY=${key || 'your-key-here'}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="absolute inset-0 z-50 bg-[#07070d]/95 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#0f0f1a] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-7 pt-7 pb-5">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-2xl bg-violet-600/25 border border-violet-500/30 flex items-center justify-center text-violet-300">
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-lg leading-none">Activate CortexCode AI</h2>
-              <p className="text-zinc-500 text-xs mt-0.5">One-time setup · Takes 30 seconds · Completely free</p>
-            </div>
-          </div>
-
-          {/* Steps indicator */}
-          <div className="flex items-center gap-2 mb-6">
-            {[1, 2, 3].map(s => (
-              <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${s <= step ? 'bg-violet-500' : 'bg-white/10'}`} />
-            ))}
-          </div>
-
-          {step === 1 && (
-            <div className="space-y-3">
-              <h3 className="text-white font-semibold">Paste your Google AI credential</h3>
-              <p className="text-zinc-400 text-sm">You can use either:</p>
-              <div className="space-y-2">
-                <div className="flex items-start gap-2.5 p-3 bg-violet-900/20 border border-violet-500/20 rounded-xl">
-                  <span className="text-violet-400 text-lg mt-0.5">①</span>
-                  <div>
-                    <div className="text-white text-xs font-semibold mb-0.5">Gemini API Key (recommended)</div>
-                    <div className="text-zinc-500 text-xs">From <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">aistudio.google.com/app/apikey</a> → Click &quot;Create API key&quot; → key starts with <code className="text-violet-300 bg-black/30 px-1 rounded">AIzaSy...</code></div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2.5 p-3 bg-zinc-800/50 border border-white/8 rounded-xl">
-                  <span className="text-zinc-400 text-lg mt-0.5">②</span>
-                  <div>
-                    <div className="text-white text-xs font-semibold mb-0.5">Google OAuth Token (if API key not available)</div>
-                    <div className="text-zinc-500 text-xs">From <a href="https://developers.google.com/oauthplayground" target="_blank" rel="noopener noreferrer" className="text-violet-400 underline">OAuth Playground</a> → Select Gemini API scope → Exchange → copy Access Token starting with <code className="text-violet-300 bg-black/30 px-1 rounded">ya29...</code></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div>
-              <h3 className="text-white font-semibold mb-1">Paste your credential here</h3>
-              <p className="text-zinc-400 text-sm mb-3">Paste your API key or OAuth token below. We&apos;ll test it automatically.</p>
-              <div className={`flex items-center gap-2 bg-black/40 border ${error ? 'border-red-500/60' : 'border-white/15'} rounded-2xl px-4 py-3 mb-2`}>
-                <Key size={15} className="text-zinc-500 shrink-0" />
-                <input
-                  type="text"
-                  value={key}
-                  onChange={e => { setKey(e.target.value); setError(''); }}
-                  placeholder="AIzaSy... or ya29... or AQ..."
-                  className="bg-transparent text-sm text-white placeholder:text-zinc-600 outline-none flex-1 font-mono"
-                  autoFocus
-                />
-              </div>
-              {error && <p className="text-red-400 text-xs mb-2 px-1">{error}</p>}
-              <p className="text-zinc-600 text-xs px-1">Stored only in your browser. Never sent to any third party.</p>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div>
-              <h3 className="text-white font-semibold mb-1">Step 3: Testing connection…</h3>
-              <p className="text-zinc-400 text-sm mb-4">Verifying your API key works with Gemini.</p>
-              <div className="flex items-center justify-center py-6">
-                <Loader2 size={36} className="text-violet-400 animate-spin" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-7 pb-7 flex gap-3">
-          {step > 1 && step < 3 && (
-            <button
-              onClick={() => setStep(s => s - 1)}
-              className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl text-sm font-medium transition"
-            >
-              Back
-            </button>
-          )}
-          {step === 1 && (
-            <button
-              onClick={() => setStep(2)}
-              className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-2xl text-sm font-medium transition flex items-center justify-center gap-2"
-            >
-              I have my key <ChevronRight size={16} />
-            </button>
-          )}
-          {step === 2 && (
-            <button
-              disabled={!key.trim() || testing}
-              onClick={async () => { setStep(3); await testAndSave(); }}
-              className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white rounded-2xl text-sm font-semibold transition shadow-lg shadow-violet-900/30 flex items-center justify-center gap-2"
-            >
-              {testing ? <><Loader2 size={16} className="animate-spin" /> Testing...</> : 'Activate CortexCode AI →'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  throw new Error(data.error?.message || 'AI service is temporarily unavailable. Please try again shortly.');
 }
 
 const SUGGESTIONS = [
@@ -225,38 +62,11 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [showSetup, setShowSetup] = useState(false);
-  const [keyChecked, setKeyChecked] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Check for custom stored key on mount if present
-  useEffect(() => {
-    queueMicrotask(() => {
-      try {
-        const raw = localStorage.getItem('cortexcode_user_api_keys');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.gemini) {
-            setApiKey(parsed.gemini);
-          }
-        }
-      } catch {
-        // ignore
-      }
-      setShowSetup(false);
-      setKeyChecked(true);
-    });
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  const handleKeySet = (key: string) => {
-    setApiKey(key);
-    setShowSetup(false);
-  };
 
   const handleSend = async (e: React.FormEvent | null, overrideInput?: string) => {
     e?.preventDefault();
@@ -269,7 +79,7 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     setIsLoading(true);
 
     try {
-      const reply = await callGeminiDirect(text, messages, apiKey);
+      const reply = await callCentralAI(text, messages);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'AI service temporarily unavailable. Please try again.';
@@ -279,21 +89,16 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
     }
   };
 
-  if (!keyChecked) return null;
-
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-[#080810] relative overflow-hidden text-white font-sans">
       {/* Ambient glows */}
       <div className="absolute top-[-10%] right-[-5%] w-[45%] h-[45%] bg-violet-700/10 blur-[130px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-700/8 blur-[130px] rounded-full pointer-events-none" />
 
-      {/* API Key Setup Wizard overlay */}
-      {showSetup && <SetupWizard onKeySet={handleKeySet} />}
-
       {/* Chat canvas */}
       <div className="flex-1 overflow-y-auto py-6 px-4 relative z-10">
         <div className="max-w-2xl mx-auto w-full space-y-5">
-          {messages.length === 0 && !showSetup && (
+          {messages.length === 0 && (
             <div className="flex flex-col items-center text-center pt-10 pb-4">
               <div className="w-14 h-14 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-300 mb-4 shadow-2xl">
                 <Bot size={26} />
@@ -352,44 +157,22 @@ export default function ChatPage({ params }: { params: Promise<{ repositoryId: s
       </div>
 
       {/* Composer bar */}
-      <div className="shrink-0 px-4 pb-4 pt-2 border-t border-white/6 bg-[#080810]/90 backdrop-blur-xl relative z-20">
-        {apiKey && (
-          <div className="flex items-center justify-between max-w-2xl mx-auto mb-1.5 px-1">
-            <span className="text-[10px] text-zinc-600">Powered by Gemini 1.5 Flash · Context-aware</span>
-            <button
-              onClick={() => { localStorage.removeItem('cortexcode_user_api_keys'); setApiKey(null); setShowSetup(true); }}
-              className="text-[10px] text-zinc-700 hover:text-zinc-400 transition"
-            >
-              Change key
-            </button>
-          </div>
-        )}
+      <div className="shrink-0 px-4 pb-4 pt-2 border-t border-[var(--border-default)] bg-[var(--bg-card)]/90 backdrop-blur-xl relative z-20">
         <form onSubmit={handleSend} className="relative max-w-2xl mx-auto flex gap-2">
           <input
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder={apiKey ? 'Ask CortexCode AI anything…' : 'Set up your API key first →'}
-            disabled={!apiKey}
-            className="flex-1 bg-zinc-900/90 border border-zinc-800/80 rounded-2xl pl-5 pr-4 py-3.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/60 disabled:opacity-50 transition-colors"
+            placeholder="Ask CortexCode AI anything…"
+            className="flex-1 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-2xl pl-5 pr-4 py-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--input-placeholder)] focus:outline-none focus:border-[var(--focus-ring)] transition-colors"
           />
-          {!apiKey ? (
-            <button
-              type="button"
-              onClick={() => setShowSetup(true)}
-              className="shrink-0 px-4 h-12 bg-violet-600 hover:bg-violet-500 text-white rounded-2xl text-xs font-semibold transition-all shadow-lg shadow-violet-900/40"
-            >
-              Setup AI →
-            </button>
-          ) : (
-            <button
+          <button
               type="submit"
               disabled={isLoading || !input.trim()}
               className="w-12 h-12 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white rounded-2xl flex items-center justify-center transition-all shadow-lg shadow-violet-900/40"
             >
               <Send size={18} />
             </button>
-          )}
         </form>
       </div>
     </div>

@@ -50,8 +50,8 @@ const MODES: { id: ChatMode; label: string; icon: React.ReactNode; color: string
 
 export default function ModeSelector({ activeMode, onModeChange }: ModeSelectorProps) {
   return (
-    <div className="flex items-center gap-1.5 px-4 py-2 border-t border-white/5 bg-zinc-950/50 overflow-x-auto scrollbar-none">
-      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider shrink-0 mr-1">Mode</span>
+    <div className="flex items-center gap-1.5 px-4 py-2 border-t border-[var(--border-default)] bg-[var(--bg-secondary)] overflow-x-auto scrollbar-none">
+      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider shrink-0 mr-1">Mode</span>
       {MODES.map((mode) => {
         const isActive = activeMode === mode.id;
         return (
@@ -59,10 +59,10 @@ export default function ModeSelector({ activeMode, onModeChange }: ModeSelectorP
             key={mode.id}
             onClick={() => onModeChange(mode.id)}
             title={mode.description}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all duration-200 shrink-0 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-transform duration-150 shrink-0 ${
               isActive
-                ? `bg-gradient-to-r ${mode.color} text-white shadow-lg scale-105`
-                : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
+                ? `bg-gradient-to-r ${mode.color} text-white shadow-md scale-105`
+                : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
             }`}
           >
             {mode.icon}

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AIGateway, GatewayMessage } from '../../ai/services/aiGateway';
 import { AIService } from '../../ai/services/aiService';
+import { redactSecrets } from '../../ai/services/secretRedactor';
 
 export class ChatController {
   static async handleChat(req: Request, res: Response) {
@@ -11,10 +12,9 @@ export class ChatController {
         conversationId,
         history = [],
         mode = 'chat',
-        model = 'gemini-3.5-flash-lite',
+        model,
         provider,
         workspaceId,
-        userKeys,
       } = req.body;
 
       const promptText = message || (messages.length > 0 ? messages[messages.length - 1]?.content : '');
@@ -44,7 +44,6 @@ export class ChatController {
         messages: gatewayMessages,
         model,
         provider,
-        userKeys,
         userId: req.user?.userId,
         workspaceId,
         requestType: mode,
@@ -68,18 +67,21 @@ export class ChatController {
         },
       });
     } catch (err: any) {
-      console.error('[Chat] Controller error:', err.message);
-      const isRateLimit = err.message?.includes('429') || err.message?.toLowerCase().includes('quota');
-      const isMissingConfig = err.message?.includes('not configured') || err.message?.includes('No AI provider');
+      const safeMsg = redactSecrets(err?.message || 'Unknown AI error');
+      console.error('[Chat] Controller error:', safeMsg);
+      const status = typeof err?.status === 'number' ? err.status : undefined;
+      const isRateLimit = status === 429 || safeMsg.includes('429') || safeMsg.toLowerCase().includes('quota');
+      const isUnavailable = status === 503 || safeMsg.includes('temporarily unavailable') || safeMsg.includes('not configured') || safeMsg.includes('No AI provider');
+      const httpStatus = status || (isRateLimit ? 429 : isUnavailable ? 503 : 500);
 
-      return res.status(isRateLimit ? 429 : 500).json({
+      return res.status(httpStatus).json({
         success: false,
         error: {
-          code: isRateLimit ? 'RATE_LIMITED' : isMissingConfig ? 'AI_CONFIG_MISSING' : 'AI_SERVICE_ERROR',
+          code: isRateLimit ? 'RATE_LIMITED' : isUnavailable ? 'AI_UNAVAILABLE' : 'AI_SERVICE_ERROR',
           message: isRateLimit
-            ? 'Too many requests. Please try again shortly.'
-            : isMissingConfig
-            ? 'AI service is temporarily unavailable. Please configure API keys.'
+            ? (err?.message && status === 429 ? safeMsg : 'Too many requests. Please try again shortly.')
+            : isUnavailable
+            ? 'AI service is temporarily unavailable. Please try again shortly.'
             : 'Cortex AI could not generate a response. Please try again.',
         },
       });

@@ -174,9 +174,9 @@ export default function ObservabilityPage() {
                   {Object.entries(health.services).map(([svc, state]) => (
                     <div
                       key={svc}
-                      className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 flex items-center justify-between"
+                      className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)] p-3 flex items-center justify-between"
                     >
-                      <span className="text-xs font-medium text-zinc-300 capitalize">{svc}</span>
+                      <span className="text-xs font-medium text-[var(--text-primary)] capitalize">{svc}</span>
                       <StatusBadge status={state} />
                     </div>
                   ))}
@@ -275,56 +275,56 @@ export default function ObservabilityPage() {
                       <div className="h-56">
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={obs.dailyUsage}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                            <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
-                            <YAxis stroke="#71717a" fontSize={10} />
-                            <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', fontSize: 11 }} />
-                            <Area type="monotone" dataKey="tokens" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                            <XAxis dataKey="date" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--text-primary)', fontSize: 11, borderRadius: 8 }} />
+                            <Area type="monotone" dataKey="tokens" stroke="var(--chart-series-1)" fill="var(--chart-series-1)" fillOpacity={0.2} />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-4">
-                      <h3 className="text-xs font-semibold text-zinc-200 mb-3">Daily Cost (USD)</h3>
+                    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
+                      <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3">Daily Cost (USD)</h3>
                       <div className="h-56">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={obs.dailyUsage}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                            <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
-                            <YAxis stroke="#71717a" fontSize={10} />
-                            <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', fontSize: 11 }} />
-                            <Bar dataKey="cost" fill="#10b981" radius={[4, 4, 0, 0]} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                            <XAxis dataKey="date" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--text-primary)', fontSize: 11, borderRadius: 8 }} />
+                            <Bar dataKey="cost" fill="var(--chart-series-3)" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-4">
-                      <h3 className="text-xs font-semibold text-zinc-200 mb-3">Daily Average Latency (ms)</h3>
+                    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
+                      <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3">Daily Average Latency (ms)</h3>
                       <div className="h-56">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={obs.dailyUsage}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                            <XAxis dataKey="date" stroke="#71717a" fontSize={10} />
-                            <YAxis stroke="#71717a" fontSize={10} />
-                            <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', fontSize: 11 }} />
-                            <Line type="monotone" dataKey="avgLatencyMs" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                            <XAxis dataKey="date" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--text-primary)', fontSize: 11, borderRadius: 8 }} />
+                            <Line type="monotone" dataKey="avgLatencyMs" stroke="var(--chart-series-4)" strokeWidth={2} dot={false} />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-4">
-                      <h3 className="text-xs font-semibold text-zinc-200 mb-3">Requests by Module & Model</h3>
+                    <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-card)] p-4">
+                      <h3 className="text-xs font-semibold text-[var(--text-primary)] mb-3">Requests by Module & Model</h3>
                       <div className="h-56">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={obs.byModel}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                            <XAxis dataKey="model" stroke="#71717a" fontSize={10} />
-                            <YAxis stroke="#71717a" fontSize={10} />
-                            <Tooltip contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', fontSize: 11 }} />
-                            <Bar dataKey="requests" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                            <XAxis dataKey="model" stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <YAxis stroke="var(--chart-axis)" tick={{ fill: 'var(--chart-axis)' }} fontSize={10} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--text-primary)', fontSize: 11, borderRadius: 8 }} />
+                            <Bar dataKey="requests" fill="var(--chart-series-2)" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>

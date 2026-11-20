@@ -219,13 +219,6 @@ export default function DemoChat({ onClose }: DemoChatProps) {
             setMessages(parsed[0].messages);
           }
         }
-
-        const rawKeys = localStorage.getItem('cortexcode_user_api_keys');
-        if (rawKeys) {
-          const parsedKeys = JSON.parse(rawKeys);
-          setSavedApiKeys(parsedKeys);
-          if (parsedKeys.gemini) setApiKey(parsedKeys.gemini);
-        }
       } catch {
         // Ignore parse errors
       }
@@ -452,11 +445,6 @@ export default function DemoChat({ onClose }: DemoChatProps) {
 
     // Send history (role + content)
     const history = messages.map(m => ({ role: m.role, content: m.content }));
-    const userKeys: Record<string, string> = {};
-    if (savedApiKeys.gemini?.trim()) userKeys.gemini = savedApiKeys.gemini.trim();
-    if (savedApiKeys.cerebras?.trim()) userKeys.cerebras = savedApiKeys.cerebras.trim();
-    if (savedApiKeys.openai?.trim()) userKeys.openai = savedApiKeys.openai.trim();
-    if (apiKey.trim()) userKeys[apiProvider] = apiKey.trim();
 
     abortControllerRef.current = new AbortController();
 
@@ -471,8 +459,7 @@ export default function DemoChat({ onClose }: DemoChatProps) {
           body: JSON.stringify({
             message: fullPrompt,
             history,
-            mode: modeToUse,
-            userKeys: Object.keys(userKeys).length > 0 ? userKeys : undefined
+            mode: modeToUse
           }),
           signal: abortControllerRef.current.signal
         });
@@ -486,11 +473,11 @@ export default function DemoChat({ onClose }: DemoChatProps) {
           aiResponseStream = await fetch(`${getApiUrl()}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
               message: fullPrompt,
               history,
-              mode: modeToUse,
-              userKeys: Object.keys(userKeys).length > 0 ? userKeys : undefined
+              mode: modeToUse
             }),
             signal: abortControllerRef.current.signal
           });

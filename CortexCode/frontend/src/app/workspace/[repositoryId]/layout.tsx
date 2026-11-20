@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { MessageSquare, Code2, ArrowLeft, RefreshCw, LogOut, CheckCircle2 } from 'lucide-react';
 import axios from 'axios';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 export default function RepositoryLayout({
   children,
@@ -109,7 +110,8 @@ export default function RepositoryLayout({
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ThemeSwitcher compact />
           <button
             onClick={handleIndexRepo}
             disabled={isIndexing}

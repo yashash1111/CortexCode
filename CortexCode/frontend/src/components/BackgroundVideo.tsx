@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-
 interface BackgroundVideoProps {
   variant?: 'home' | 'auth' | 'subtle';
 }
@@ -11,44 +9,36 @@ export default function BackgroundVideo({ variant = 'home' }: BackgroundVideoPro
   const isSubtle = variant === 'subtle';
   return (
     <div suppressHydrationWarning className="contents">
-      {/* Video — full brightness on home, darkened on auth */}
+      {/* Video — subtle in light mode, rich in dark mode */}
       <video
         autoPlay
         loop
         muted
         playsInline
         suppressHydrationWarning
-        className={`fixed inset-0 w-full h-full object-cover z-[-2] transition-all duration-700 ${
+        className={`fixed inset-0 w-full h-full object-cover z-[-2] transition-all duration-700 opacity-15 dark:opacity-100 ${
           isHome
-            ? 'brightness-[1.15] contrast-[1.08] saturate-[1.1] scale-100'
+            ? 'dark:brightness-[1.05] contrast-[1.05] scale-100'
             : isSubtle
-            ? 'brightness-[0.5] contrast-[1.1] scale-100'
-            : 'brightness-[0.75] contrast-[1.1] scale-100'
+            ? 'dark:brightness-[0.45] contrast-[1.08] scale-100'
+            : 'dark:brightness-[0.65] contrast-[1.08] scale-100'
         }`}
       >
         <source src="/background.mp4" type="video/mp4" />
       </video>
 
-      {/* Overlay — minimal on home for full video visibility */}
+      {/* Theme-aware overlay */}
       {isHome ? (
-        /* Very light vignette only at top and bottom — video stays vivid */
         <div
           suppressHydrationWarning
-          className="fixed inset-0 w-full h-full z-[-1] pointer-events-none"
-          style={{
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 30%, transparent 65%, rgba(0,0,0,0.55) 100%)'
-          }}
+          className="fixed inset-0 w-full h-full z-[-1] pointer-events-none bg-gradient-to-b from-[var(--bg-main)]/85 via-[var(--bg-main)]/75 to-[var(--bg-main)]/90 dark:from-[#0B1120]/75 dark:via-[#0B1120]/45 dark:to-[#0B1120]/85"
         />
       ) : isSubtle ? (
-        <div suppressHydrationWarning className="fixed inset-0 w-full h-full z-[-1] bg-zinc-950/40 pointer-events-none" />
+        <div suppressHydrationWarning className="fixed inset-0 w-full h-full z-[-1] bg-[var(--bg-main)]/90 dark:bg-[#0B1120]/65 pointer-events-none" />
       ) : (
-        /* Auth pages — moderate overlay so glass cards read well */
         <div
           suppressHydrationWarning
-          className="fixed inset-0 w-full h-full z-[-1] pointer-events-none"
-          style={{
-            background: 'linear-gradient(135deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.6) 100%)'
-          }}
+          className="fixed inset-0 w-full h-full z-[-1] pointer-events-none bg-[var(--bg-main)]/85 dark:bg-[#0B1120]/70"
         />
       )}
     </div>

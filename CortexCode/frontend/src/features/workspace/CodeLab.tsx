@@ -201,14 +201,14 @@ export default function CodeLab() {
         {/* Code Canvas */}
         <div
           onMouseUp={handleTextSelection}
-          className="flex-1 p-4 bg-[#070709] overflow-auto font-mono text-xs text-neutral-200 leading-relaxed custom-scrollbar relative select-text"
+          className="flex-1 p-4 bg-[var(--code-bg)] overflow-auto font-mono text-xs text-[var(--code-text)] leading-relaxed custom-scrollbar relative select-text"
         >
           {selectedText && (
-            <div className="sticky top-2 right-2 z-10 inline-flex items-center gap-2 p-2 bg-[#121212] border border-[#262626] rounded-md text-[11px] text-white shadow-xl animate-fade-in-up">
+            <div className="sticky top-2 right-2 z-10 inline-flex items-center gap-2 p-2 bg-[var(--modal-bg)] border border-[var(--border-default)] rounded-md text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-md)] animate-fade-in-up">
               <span>Selected {selectedText.length} chars</span>
               <button
                 onClick={() => handleRunAIAction('explain')}
-                className="px-2 py-0.5 bg-blue-600 rounded text-white font-medium hover:bg-blue-500"
+                className="px-2 py-0.5 bg-[var(--btn-primary-bg)] rounded text-[var(--btn-primary-text)] font-medium hover:bg-[var(--btn-primary-hover)]"
               >
                 Explain →
               </button>
@@ -217,9 +217,9 @@ export default function CodeLab() {
 
           <pre className="whitespace-pre">
             {activeFile.code.split('\n').map((line, idx) => (
-              <div key={idx} className="flex hover:bg-[#141414] px-1 rounded font-mono">
-                <span className="w-8 shrink-0 text-neutral-600 select-none text-[11px] text-right pr-3 font-mono">{idx + 1}</span>
-                <span className="flex-1 text-neutral-200 font-mono">{line}</span>
+              <div key={idx} className="flex hover:bg-[var(--bg-hover)] px-1 rounded font-mono">
+                <span className="w-8 shrink-0 text-[var(--code-line-num)] select-none text-[11px] text-right pr-3 font-mono">{idx + 1}</span>
+                <span className="flex-1 text-[var(--code-text)] font-mono">{line}</span>
               </div>
             ))}
           </pre>

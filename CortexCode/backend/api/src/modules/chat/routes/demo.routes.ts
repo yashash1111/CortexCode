@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { DemoChatController } from '../controllers/demo.controller';
+import { demoRateLimiter } from '../../../middleware/rateLimit.middleware';
 
 const router = Router();
+
+router.use(demoRateLimiter);
 
 /**
  * POST /api/demo/chat
@@ -11,7 +14,7 @@ router.post('/chat', DemoChatController.chat);
 
 /**
  * POST /api/demo/chat/stream
- * Real-time SSE streaming word-by-word response
+ * Real-time SSE streaming response
  */
 router.post('/chat/stream', DemoChatController.stream);
 

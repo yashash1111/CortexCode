@@ -5,6 +5,7 @@ import Link from 'next/link';
 import axios from 'axios';
 import { ArrowLeft, KeyRound, CheckCircle2, RefreshCw, Send } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useToast } from '@/providers/ToastProvider';
 
 export default function ForgotPasswordPage() {
@@ -37,14 +38,15 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans">
       <BackgroundVideo variant="auth" />
 
-      {/* Floating Header Back Link */}
-      <div className="absolute top-6 left-6 z-20">
+      {/* Floating Header Back Link & Theme Switcher */}
+      <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/login"
-          className="flex items-center gap-2 px-4 py-2 bg-black/50 hover:bg-black/80 border border-white/10 rounded-full text-xs font-bold text-zinc-300 hover:text-white transition-all backdrop-blur-md"
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)]/90 hover:bg-[var(--bg-hover)] border border-[var(--border-default)] rounded-full text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all backdrop-blur-md"
         >
           <ArrowLeft size={14} /> Back to Login
         </Link>
+        <ThemeSwitcher />
       </div>
       
       {/* Interactive Glass Card */}

@@ -7,7 +7,6 @@ export async function POST(req: NextRequest) {
     const message = body.message || body.content || '';
     const history = body.history || [];
     const mode = body.mode || 'chat';
-    const userKeys = body.userKeys;
 
     if (!message || typeof message !== 'string' || message.trim() === '') {
       return new Response(JSON.stringify({ error: 'Message is required.' }), {
@@ -16,7 +15,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const fullResponse = await generateAiResponseServer(message.trim(), history, mode, userKeys);
+    const fullResponse = await generateAiResponseServer(message.trim(), history, mode);
 
     // Stream SSE back to client at ultra-high speed
     const encoder = new TextEncoder();

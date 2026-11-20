@@ -59,9 +59,9 @@ Do NOT default to JavaScript under any circumstances.`;
   static async generateResponse(
     prompt: string,
     history: any[] = [],
-    modelName: string = 'gemini-3.5-flash-lite',
+    modelName?: string,
     mode: string = 'chat',
-    userKeys?: UserApiKeys,
+    _unusedUserKeys?: UserApiKeys,
     context?: { userId?: string; workspaceId?: string }
   ): Promise<string> {
     const systemPrompt = AIService.buildSystemInstructions(mode, prompt);
@@ -84,7 +84,6 @@ Do NOT default to JavaScript under any circumstances.`;
     const result = await AIGateway.generate({
       messages,
       model: modelName,
-      userKeys,
       userId: context?.userId,
       workspaceId: context?.workspaceId,
       requestType: mode,

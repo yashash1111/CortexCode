@@ -510,7 +510,7 @@ export default function TestTakingWorkbench({
                     value={currentAns.codeAnswer ?? (typeof currentQ.starterCode === 'string' ? currentQ.starterCode : currentQ.starterCode?.[selectedLanguage]) ?? '// Write your solution here\n'}
                     onChange={e => saveAnswer(currentQ.id, { codeAnswer: e.target.value, codeLanguage: selectedLanguage })}
                     rows={12}
-                    className="w-full p-3.5 bg-[#0d0d0d] border border-[#262626] rounded-b-lg font-mono text-xs text-emerald-400 outline-none focus:border-neutral-700 resize-y"
+                    className="w-full p-3.5 bg-[var(--code-bg)] border border-[var(--code-border)] rounded-b-lg font-mono text-xs text-[var(--code-text)] outline-none focus:border-[var(--focus-ring)] resize-y"
                     spellCheck={false}
                   />
 
