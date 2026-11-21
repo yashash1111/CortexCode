@@ -92,54 +92,43 @@ export default function EmptyState({ onSelectPrompt, mode }: EmptyStateProps) {
   const config = MODE_CONFIG[mode];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-4xl mx-auto my-auto animate-fade-in-up">
-      
-      {/* Brand Logo & Glowing Emblem */}
-      <div className="relative mb-6">
-        <div className="absolute inset-0 rounded-3xl bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-600 animate-pulse opacity-40 blur-xl" />
-        <img
-          src="/logo.jpg"
-          alt="CortexCode Logo"
-          className="w-20 h-20 rounded-3xl border-2 border-white/30 shadow-[0_0_50px_rgba(168,85,247,0.6)] relative z-10 object-cover"
-        />
-      </div>
-
+    <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-6 text-center max-w-4xl mx-auto my-auto animate-fade-in-up">
       {/* Mode Badge */}
-      <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold mb-4 backdrop-blur-md ${config.badgeColor}`}>
-        <Sparkles size={14} className="animate-pulse" />
+      <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-primary)] text-xs font-semibold mb-3 backdrop-blur-md">
+        <Sparkles size={13} className="animate-pulse" />
         <span>{config.badge}</span>
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white mb-3">
+      <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-2">
         {config.headline}
-      </h1>
-      <p className="text-zinc-400 text-sm md:text-base max-w-lg mb-10 font-medium leading-relaxed">
+      </h2>
+      <p className="text-[var(--text-muted)] text-sm max-w-lg mb-8 leading-relaxed">
         {config.subtext}
       </p>
 
       {/* Grid of Clickable Prompt Suggestions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
         {config.suggestions.map((item, idx) => (
           <button
             key={idx}
             onClick={() => onSelectPrompt(item.title)}
-            className="group flex flex-col justify-between p-4 bg-zinc-900/60 hover:bg-purple-950/40 border border-white/10 hover:border-purple-400/50 rounded-2xl text-left transition-all duration-300 backdrop-blur-xl shadow-lg transform hover:scale-[1.02]"
+            className="group flex flex-col justify-between p-4 bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] hover:border-[var(--accent-border)] rounded-2xl text-left transition-all duration-200 backdrop-blur-xl shadow-sm hover:shadow-md cursor-pointer"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
-                <div className="p-2.5 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors">
+                <div className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-default)] group-hover:border-[var(--accent-border)] transition-colors">
                   {item.icon}
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 group-hover:text-purple-400 transition-colors">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] group-hover:text-[var(--accent-primary)] transition-colors">
                   {item.category}
                 </span>
               </div>
-              <div className="text-xs font-extrabold text-zinc-200 group-hover:text-white leading-snug">
+              <div className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
                 &quot;{item.title}&quot;
               </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-end text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="mt-3 flex items-center justify-end text-[var(--accent-primary)] opacity-0 group-hover:opacity-100 transition-opacity">
               <ArrowRight size={14} className="transform group-hover:translate-x-1 transition-transform" />
             </div>
           </button>

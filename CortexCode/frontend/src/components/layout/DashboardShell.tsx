@@ -41,16 +41,18 @@ export function DashboardShell({
     <div className="flex flex-col h-full">
       <div className="h-14 px-4 flex items-center justify-between border-b border-[var(--sidebar-border)]">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <img
-            src="/logo.jpg"
-            alt="CortexCode"
-            className="w-7 h-7 rounded-lg border border-[var(--border-default)] object-cover"
-          />
-          <span className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 p-[1px] shadow-md shadow-violet-600/20">
+            <img
+              src="/logo.jpg"
+              alt="CortexCode"
+              className="w-full h-full rounded-[11px] object-cover"
+            />
+          </div>
+          <span className="text-sm font-bold tracking-tight text-[var(--text-primary)]">
             CortexCode
           </span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-default)]">
-            v1
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent-primary)] border border-[var(--accent-border)]">
+            Pro
           </span>
         </Link>
         <button
@@ -158,8 +160,8 @@ export function DashboardShell({
         </div>
       )}
 
-      <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-14 px-4 sm:px-6 border-b border-[var(--border-default)] flex items-center justify-between gap-3 bg-[var(--header-bg)] backdrop-blur-sm sticky top-0 z-20">
+      <div className="flex-1 min-w-0 flex flex-col cortex-ambient-bg">
+        <header className="h-14 px-4 sm:px-6 border-b border-[var(--border-default)] flex items-center justify-between gap-3 bg-[var(--header-bg)] backdrop-blur-xl sticky top-0 z-20">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileOpen(true)}
