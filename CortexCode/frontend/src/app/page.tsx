@@ -5,7 +5,6 @@ import BackgroundVideo from "../components/BackgroundVideo";
 import Link from "next/link";
 import { Sparkles, Shield, Cpu, ArrowRight, X, Terminal, CheckCircle2, Zap, MessageSquare } from "lucide-react";
 import DemoChat from '@/features/chat/DemoChat';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 
 export default function Home() {
   const [activeFeatureModal, setActiveFeatureModal] = useState<'rag' | 'bugs' | 'pr' | null>(null);
@@ -29,7 +28,6 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <ThemeSwitcher />
           <Link
             href="/login"
             className="text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full hover:bg-[var(--bg-hover)] whitespace-nowrap"

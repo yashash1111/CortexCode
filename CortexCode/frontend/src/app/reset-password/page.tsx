@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Code2, Lock, CheckCircle2 } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useToast } from '@/providers/ToastProvider';
 
 function ResetPasswordForm() {
@@ -152,7 +151,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans">
       <BackgroundVideo />
 
-      {/* Floating Header Back Link & Theme Switcher */}
+      {/* Floating Header Back Link */}
       <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/"
@@ -160,7 +159,6 @@ export default function ResetPasswordPage() {
         >
           <ArrowLeft size={14} /> Back to Home
         </Link>
-        <ThemeSwitcher />
       </div>
 
       <Suspense fallback={<div className="text-sm text-zinc-400">Loading reset panel...</div>}>

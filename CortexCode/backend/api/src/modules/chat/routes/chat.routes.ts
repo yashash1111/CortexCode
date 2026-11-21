@@ -8,5 +8,6 @@ const router = Router();
  * POST /api/chat (Authenticated centralized AI chat)
  */
 router.post('/', authenticate, ChatController.handleChat);
+router.post('/stream', authenticate, ChatController.streamChat);
 
 export default router;

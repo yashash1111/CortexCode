@@ -5,7 +5,6 @@ import Link from 'next/link';
 import axios from 'axios';
 import { ArrowLeft, KeyRound, CheckCircle2, RefreshCw, Send } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useToast } from '@/providers/ToastProvider';
 
 export default function ForgotPasswordPage() {
@@ -38,7 +37,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans">
       <BackgroundVideo variant="auth" />
 
-      {/* Floating Header Back Link & Theme Switcher */}
+      {/* Floating Header Back Link */}
       <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/login"
@@ -46,7 +45,6 @@ export default function ForgotPasswordPage() {
         >
           <ArrowLeft size={14} /> Back to Login
         </Link>
-        <ThemeSwitcher />
       </div>
       
       {/* Interactive Glass Card */}

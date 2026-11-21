@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft, Zap, Lock, Mail, GitBranch } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { signInWithGoogleFirebase, signInWithGitHubFirebase } from '@/lib/firebase';
 import { useToast } from '@/providers/ToastProvider';
 import { getApiUrl } from '@/lib/apiConfig';
@@ -188,7 +187,7 @@ function LoginContent() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans overflow-hidden">
       <BackgroundVideo variant="home" />
 
-      {/* Back Link & Theme Switcher */}
+      {/* Back Link */}
       <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/"
@@ -196,7 +195,6 @@ function LoginContent() {
         >
           <ArrowLeft size={14} /> Home
         </Link>
-        <ThemeSwitcher />
       </div>
 
       {/* Brand Header — above the card */}

@@ -2,11 +2,10 @@
 
 All `/api/*` endpoints (except `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/webhooks/github`, and `/api/demo/*`) require authentication via HttpOnly `accessToken` cookie or `Authorization: Bearer <token>`.
 
-## Health & Observability
+## Health & Jobs
 - `GET /health` — Live PostgreSQL, Redis, AI Service, and provider configuration check.
 - `GET /api/jobs` — List user's `IngestionJob`s (`workspaceId`, `moduleType`, `status`).
 - `GET /api/jobs/:id` — Get job status, progress percentage, stage, and error details.
-- `GET /api/jobs/observability/summary` — Real-time metrics (`days`, `workspaceId`, `module`, `model` filters): KPIs, p50/p95 latency, daily usage, `byModel`, `byModule`, jobs, evals, and PR reviews.
 
 ## Docs & Spec RAG (`/api/docs`)
 - `POST /api/docs/upload` — Upload PDF or Markdown (max 15 MB), enqueue BullMQ ingestion job.

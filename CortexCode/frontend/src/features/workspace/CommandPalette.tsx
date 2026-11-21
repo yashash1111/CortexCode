@@ -2,17 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Search, MessageSquare, Cpu, FileText, BookOpen,
-  Target, Bot, X, ArrowRight, Layers, LayoutDashboard
+  Search, MessageSquare, Cpu,
+  Target, Bot, X, ArrowRight, Briefcase
 } from 'lucide-react';
 
 export type WorkspaceTab =
   | 'chat'
-  | 'study'
   | 'goals'
   | 'agents'
   | 'security'
-  | 'assessments';
+  | 'mock-interview';
 
 interface Props {
   isOpen: boolean;
@@ -42,11 +41,10 @@ export default function CommandPalette({ isOpen, onClose, onSelectTab }: Props) 
 
   const COMMANDS: { id: WorkspaceTab; title: string; desc: string; icon: React.ComponentType<{ size?: number; className?: string }>; category: string }[] = [
     { id: 'chat', title: 'AI Chat Assistant', desc: 'Ask questions, debug & stream answers', icon: MessageSquare, category: 'AI Tools' },
-    { id: 'study', title: 'AI Study Mode', desc: 'Upload materials, flashcards & MCQs', icon: BookOpen, category: 'Learning' },
     { id: 'goals', title: 'Goal Roadmap Tracker', desc: 'Track multi-day roadmaps & daily tasks', icon: Target, category: 'Planning' },
     { id: 'agents', title: 'Multi-Agent Builder', desc: 'Specialized agents & custom agent builder', icon: Bot, category: 'AI Agents' },
     { id: 'security', title: 'Security & Active Sessions', desc: 'Change password & review security activity', icon: Cpu, category: 'Settings' },
-    { id: 'assessments', title: 'AI Proctored Assessments', desc: 'Technical exams, coding workbenches & real-time proctoring', icon: Target, category: 'Assessments' }
+    { id: 'mock-interview', title: 'AI Mock Interview', desc: 'Adaptive role-specific technical, DSA, system design & HR interviews', icon: Briefcase, category: 'Interview Prep' }
   ];
 
   const filtered = COMMANDS.filter(c =>

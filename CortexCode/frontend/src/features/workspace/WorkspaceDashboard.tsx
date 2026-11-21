@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  MessageSquare, Layers, Target, BookOpen,
+  MessageSquare, Layers, Target,
   Cpu, ArrowRight, Code2, Bot
 } from 'lucide-react';
 import { WorkspaceTab } from './CommandPalette';
@@ -45,13 +45,12 @@ export default function WorkspaceDashboard({ onNavigateTab, userName = 'Develope
           </div>
         </div>
 
-        {/* 4 Minimalist Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* 3 Minimalist Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             { title: 'Conversations', count: '128', sub: '12 active this week', icon: MessageSquare, tab: 'chat' as WorkspaceTab },
             { title: 'Active Projects', count: '3', sub: 'TrainTrack, FloodAlert, CortexCode', icon: Layers, tab: 'projects' as WorkspaceTab },
             { title: 'Goal Roadmaps', count: '2', sub: 'Master DSA in 60 Days', icon: Target, tab: 'goals' as WorkspaceTab },
-            { title: 'Learning Progress', count: '78%', sub: '3 concepts mastered', icon: BookOpen, tab: 'study' as WorkspaceTab },
           ].map((card, idx) => {
             const Icon = card.icon;
             return (
@@ -73,8 +72,8 @@ export default function WorkspaceDashboard({ onNavigateTab, userName = 'Develope
           })}
         </div>
 
-        {/* 3 Core System Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* 2 Core System Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           
           {/* Card 1: Memory */}
           <div
@@ -96,27 +95,7 @@ export default function WorkspaceDashboard({ onNavigateTab, userName = 'Develope
             </div>
           </div>
 
-          {/* Card 2: Study Mode */}
-          <div
-            onClick={() => onNavigateTab('study')}
-            className="p-4 bg-[#121212] border border-[#262626] hover:border-neutral-700 rounded-lg cursor-pointer transition group flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center gap-2 mb-2 text-white">
-                <BookOpen size={16} className="text-blue-400" />
-                <h3 className="text-sm font-bold">AI Study & Tutor</h3>
-              </div>
-              <p className="text-xs text-neutral-400 leading-relaxed font-sans mb-4">
-                Upload notes or PDFs, review auto-generated flashcards, and test concepts.
-              </p>
-            </div>
-            <div className="flex items-center gap-1 text-xs font-semibold text-blue-400">
-              <span>Open Study Mode</span>
-              <ArrowRight size={13} className="group-hover:translate-x-0.5 transition" />
-            </div>
-          </div>
-
-          {/* Card 3: Multi-Agent Builder */}
+          {/* Card 2: Multi-Agent Builder */}
           <div
             onClick={() => onNavigateTab('agents')}
             className="p-4 bg-[#121212] border border-[#262626] hover:border-neutral-700 rounded-lg cursor-pointer transition group flex flex-col justify-between"

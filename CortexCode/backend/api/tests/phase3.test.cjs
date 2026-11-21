@@ -257,17 +257,3 @@ test('3. GitHub Webhook HMAC signature & duplicate delivery protection', async (
     process.env.GITHUB_WEBHOOK_SECRET = prevSecret;
   }
 });
-
-test('4. Observability summary computes real database metrics & percentiles', async () => {
-  const obsRes = await apiReq(`/api/jobs/observability/summary?days=30&workspaceId=${workspaceId}`);
-  assert.equal(obsRes.status, 200);
-  const obsJson = await obsRes.json();
-  const data = obsJson.data;
-  assert.ok(data.summary.totalRequests >= 1);
-  assert.ok(data.summary.totalTokens > 0);
-  assert.ok(data.summary.p50LatencyMs >= 0);
-  assert.ok(data.summary.p95LatencyMs >= data.summary.p50LatencyMs);
-  assert.ok(Array.isArray(data.dailyUsage));
-  assert.ok(Array.isArray(data.byModel));
-  assert.ok(Array.isArray(data.byModule));
-});

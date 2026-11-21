@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
         destination: `${backendUrl}/api/auth/:path*`,
       },
       {
+        source: '/api/profile/:path*',
+        destination: `${backendUrl}/api/profile/:path*`,
+      },
+      {
+        source: '/api/profile',
+        destination: `${backendUrl}/api/profile`,
+      },
+      {
         source: '/api/repositories/:path*',
         destination: `${backendUrl}/api/repositories/:path*`,
       },

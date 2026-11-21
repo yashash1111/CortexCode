@@ -10,6 +10,7 @@ import { addDocIngestionJob } from '../../../jobs/queues/doc_ingestion.queue';
 import { DocRagService, formatCitationLabel } from '../services/docRagService';
 import { DocEvalService } from '../services/docEvalService';
 import { AIGateway, GatewayMessage } from '../../ai/services/aiGateway';
+import { ActivityService } from '../../profile/services/activity.service';
 
 const router = Router();
 router.use(authenticate);
@@ -84,6 +85,11 @@ router.post('/upload', upload.single('file') as any, async (req: Request, res: R
     });
 
     const job = await addDocIngestionJob({ documentId: document.id, workspaceId, userId });
+
+    ActivityService.recordUserActivity(userId, 'doc_uploaded', {
+      documentId: document.id,
+      fileName: file.originalname,
+    }).catch(() => {});
 
     return res.status(202).json({
       success: true,

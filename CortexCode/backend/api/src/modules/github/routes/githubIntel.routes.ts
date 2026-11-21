@@ -7,6 +7,7 @@ import { addIndexJob } from '../../../jobs/queues/indexing.queue';
 import { RepoRagService } from '../services/repoRagService';
 import { PRReviewService } from '../../pr-review/services/prReviewService';
 import { AIGateway } from '../../ai/services/aiGateway';
+import { ActivityService } from '../../profile/services/activity.service';
 
 const router = Router();
 router.use(authenticate);
@@ -225,6 +226,11 @@ router.post('/repos/:id/qa', async (req: Request, res: Response) => {
       requestType: 'repo_qa',
     });
 
+    ActivityService.recordUserActivity(userId, 'repo_analyzed', {
+      repositoryId: repo.id,
+      fullName: repo.fullName,
+    }, repo.id).catch(() => {});
+
     return res.json({
       success: true,
       data: {
@@ -401,6 +407,12 @@ router.post('/pr-reviews', async (req: Request, res: Response) => {
       repositoryId,
       prNumber: prNumber ? Number(prNumber) : undefined,
     });
+
+    ActivityService.recordUserActivity(userId, 'code_review', {
+      source: 'pr_review',
+      prNumber: prNumber || null,
+      repositoryId: repositoryId || null,
+    }, repositoryId || undefined).catch(() => {});
 
     return res.status(201).json({ success: true, data: review });
   } catch (err: any) {
