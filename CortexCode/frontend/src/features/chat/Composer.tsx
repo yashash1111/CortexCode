@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Square, Paperclip, FolderOpen } from 'lucide-react';
+import {
+  Send, Square, Paperclip, FolderOpen, Sparkles, ChevronDown, Check,
+  SlidersHorizontal, MessageSquare, Bug, BookOpen, FileText, Search
+} from 'lucide-react';
 import { useToast } from '@/providers/ToastProvider';
 import FileAttachments from './FileAttachments';
 import VoiceInput from './VoiceInput';
+import type { ChatMode } from './ModeSelector';
 import {
   detectFileType, readFileAsText, readFileAsDataURL,
   isTextReadable, generateFileId, IGNORED_FOLDERS,
@@ -32,7 +36,27 @@ interface ComposerProps {
   attachedFiles: AttachedFile[];
   setAttachedFiles: (files: AttachedFile[]) => void;
   onDragStateChange?: (isDragging: boolean) => void;
+  activeMode?: ChatMode;
+  onModeChange?: (mode: ChatMode) => void;
+  selectedModel?: string;
+  onSelectModel?: (model: string) => void;
+  tokensUsed?: number;
 }
+
+const COMPOSER_MODELS = [
+  'CortexCode AI (GPT-4o)',
+  'CortexCode AI (Gemini Pro)',
+  'CortexCode AI (Claude 3.5)',
+  'CortexCode AI (DeepSeek R1)',
+];
+
+const TOOL_MODES: Array<{ id: ChatMode; label: string; desc: string; icon: React.ComponentType<{ size?: number; className?: string }> }> = [
+  { id: 'chat', label: 'AI Chat', desc: 'General developer assistant', icon: MessageSquare },
+  { id: 'debug', label: 'Debug Mode', desc: 'Diagnose and fix errors', icon: Bug },
+  { id: 'explain', label: 'Explain Mode', desc: 'Break down concepts', icon: BookOpen },
+  { id: 'notes', label: 'Study Notes', desc: 'Structured notes & summaries', icon: FileText },
+  { id: 'review', label: 'Code Review', desc: 'Security & quality audit', icon: Search },
+];
 
 export default function Composer({
   inputMessage,
@@ -42,13 +66,20 @@ export default function Composer({
   onStopGenerating,
   attachedFiles,
   setAttachedFiles,
-  onDragStateChange
+  onDragStateChange,
+  activeMode = 'chat',
+  onModeChange,
+  selectedModel,
+  onSelectModel,
+  tokensUsed,
 }: ComposerProps) {
   const toast = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
 
   // Auto-grow textarea
   useEffect(() => {
@@ -244,17 +275,31 @@ export default function Composer({
 
   return (
     <div
-      className="w-full max-w-4xl mx-auto px-4 pb-4 md:px-6 md:pb-6 shrink-0"
+      className="w-full max-w-4xl mx-auto px-3 pb-3 md:px-6 md:pb-5 shrink-0 relative z-20"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {/* Floating Stop Generating Pill (matches reference) */}
+      {isGenerating && (
+        <div className="flex justify-start mb-2.5">
+          <button
+            type="button"
+            onClick={onStopGenerating}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] border border-[var(--border-strong)] text-xs font-medium text-[var(--text-primary)] shadow-md transition-colors cursor-pointer"
+          >
+            <Square size={11} className="fill-current text-[var(--text-primary)]" />
+            <span>Stop generating</span>
+          </button>
+        </div>
+      )}
+
       <div
-        className={`relative bg-[#121212] border rounded-lg transition-all ${
+        className={`relative bg-[var(--bg-card)] backdrop-blur-xl border rounded-2xl transition-all shadow-lg ${
           isDragOver
-            ? 'border-blue-500 bg-[#171717]'
-            : 'border-[#262626] focus-within:border-neutral-700'
+            ? 'border-[var(--accent-primary)] ring-2 ring-[var(--accent-soft)]'
+            : 'border-[var(--border-strong)] focus-within:border-[var(--accent-primary)]'
         }`}
       >
         {/* File Attachments Strip */}
@@ -270,76 +315,168 @@ export default function Composer({
           placeholder={
             attachedFiles.length > 0
               ? `Ask about ${attachedFiles.length === 1 ? attachedFiles[0].name : `${attachedFiles.length} files`}...`
-              : 'Ask CortexCode anything... (Enter to send, Shift+Enter for new line)'
+              : 'Ask CortexCode anything... (Use @ to add files, / for commands)'
           }
-          className="w-full px-4 py-3 bg-transparent text-sm font-medium text-white placeholder-neutral-500 focus:outline-none resize-none overflow-y-auto max-h-48 font-sans"
+          className="w-full px-4 pt-3.5 pb-2 bg-transparent text-sm font-medium text-[var(--text-primary)] placeholder-[var(--input-placeholder)] focus:outline-none resize-none overflow-y-auto max-h-48 font-sans"
         />
 
-        {/* Bottom Bar: Left actions + Right send */}
-        <div className="flex items-center justify-between px-3 pb-2.5">
-          {/* Left: Attachment Actions */}
-          <div className="flex items-center gap-1">
-            {/* File Attachment */}
+        {/* Bottom Bar: Left actions + Right model & send */}
+        <div className="flex items-center justify-between px-3 pb-2.5 pt-1 gap-2 flex-wrap">
+          {/* Left: Attachment Actions + Tools */}
+          <div className="flex items-center gap-1 relative">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               title="Attach files"
-              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1c1c1c] rounded transition-colors"
+              className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-xl transition-colors cursor-pointer"
             >
               <Paperclip size={15} />
             </button>
 
-            {/* Folder Upload */}
             <button
               type="button"
               onClick={() => folderInputRef.current?.click()}
               title="Upload a folder / project"
-              className="p-1.5 text-neutral-400 hover:text-white hover:bg-[#1c1c1c] rounded transition-colors"
+              className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-xl transition-colors cursor-pointer"
             >
               <FolderOpen size={15} />
             </button>
 
-            {/* Voice Input */}
             <VoiceInput onTranscript={handleVoiceTranscript} />
+
+            {onModeChange && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowToolsMenu((v) => !v);
+                    setShowModelMenu(false);
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer ml-1"
+                >
+                  <SlidersHorizontal size={13} className="text-[var(--accent-primary)]" />
+                  <span>Tools</span>
+                  <ChevronDown size={12} className="text-[var(--text-muted)]" />
+                </button>
+
+                {showToolsMenu && (
+                  <div className="absolute bottom-11 left-0 w-56 bg-[var(--dropdown-bg)] border border-[var(--dropdown-border)] rounded-xl p-1.5 shadow-2xl z-50">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2.5 py-1">
+                      AI Assistant Mode
+                    </div>
+                    {TOOL_MODES.map((m) => {
+                      const Icon = m.icon;
+                      const isActive = activeMode === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            onModeChange(m.id);
+                            setShowToolsMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors text-left ${
+                            isActive
+                              ? 'bg-[var(--accent-soft)] text-[var(--accent-primary)] font-semibold'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <Icon size={13} />
+                            <span>{m.label}</span>
+                          </span>
+                          {isActive && <Check size={12} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Right: Stop / Send */}
-          <div className="flex items-center gap-2">
+          {/* Right: Model Selector + Send */}
+          <div className="flex items-center gap-2 ml-auto">
             {attachedFiles.length > 0 && (
-              <span className="text-[10px] font-mono text-neutral-400 mr-1">
+              <span className="text-[11px] font-mono text-[var(--text-muted)] mr-1">
                 {attachedFiles.length} file{attachedFiles.length > 1 ? 's' : ''}
               </span>
             )}
 
-            {isGenerating ? (
-              <button
-                type="button"
-                onClick={onStopGenerating}
-                className="flex items-center gap-1 px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-semibold transition-colors"
-                title="Stop generating"
-              >
-                <Square size={11} className="fill-white" />
-                Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!canSend}
-                className="p-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-30 transition-colors flex items-center justify-center"
-                title="Send message"
-              >
-                <Send size={15} />
-              </button>
+            {selectedModel && onSelectModel && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModelMenu((v) => !v);
+                    setShowToolsMenu(false);
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                >
+                  <Sparkles size={13} className="text-[var(--accent-primary)] shrink-0" />
+                  <span className="hidden sm:inline truncate max-w-[140px]">
+                    {selectedModel.replace('CortexCode AI (', '').replace(')', '')}
+                  </span>
+                  <ChevronDown size={12} className="text-[var(--text-muted)]" />
+                </button>
+
+                {showModelMenu && (
+                  <div className="absolute bottom-11 right-0 w-60 bg-[var(--dropdown-bg)] border border-[var(--dropdown-border)] rounded-xl p-1.5 shadow-2xl z-50">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2.5 py-1">
+                      Select AI Model
+                    </div>
+                    {COMPOSER_MODELS.map((model) => (
+                      <button
+                        key={model}
+                        type="button"
+                        onClick={() => {
+                          onSelectModel(model);
+                          setShowModelMenu(false);
+                          toast.showSuccess('Model Switched', `Now using ${model}`);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium transition flex items-center justify-between ${
+                          selectedModel === model
+                            ? 'bg-[var(--accent-soft)] text-[var(--accent-primary)]'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        <span>{model}</span>
+                        {selectedModel === model && <Check size={13} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
+
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!canSend}
+              className="p-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl disabled:opacity-35 transition-all shadow-md shadow-violet-600/25 flex items-center justify-center cursor-pointer"
+              title="Send message"
+            >
+              <Send size={15} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Hint Text */}
-      <p className="text-center text-[10px] font-mono text-neutral-500 mt-2">
-        Enter to send · Shift+Enter for new line · Drag files to attach
-      </p>
+      {/* Footer Status Bar */}
+      <div className="flex items-center justify-between px-2 mt-2 text-[11px] text-[var(--text-muted)] gap-2 flex-wrap">
+        <span className="hidden sm:inline">Enter to send · Shift+Enter for new line · Drag files to attach</span>
+        <div className="flex items-center gap-3 ml-auto font-mono">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[var(--status-success)]" />
+            <span>All systems operational</span>
+          </span>
+          {typeof tokensUsed === 'number' && (
+            <span className="text-[var(--text-secondary)]">
+              {tokensUsed.toLocaleString()} tokens this month
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Hidden Inputs */}
       <input

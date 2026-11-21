@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { CitationSource } from './types';
+import { CodeBlock } from '@/components/CodeBlock';
 
 function renderInlineWithCitations(
   text: string,
@@ -88,16 +89,7 @@ export function MarkdownRenderer({
           const lines = block.slice(3, -3).split('\n');
           const lang = lines[0]?.trim() || 'code';
           const codeBody = lines.slice(1).join('\n');
-          return (
-            <div key={idx} className="rounded-lg border border-[var(--code-border)] bg-[var(--code-bg)] overflow-hidden my-2">
-              <div className="px-3 py-1.5 bg-[var(--code-header-bg)] border-b border-[var(--code-border)] text-[11px] font-mono text-[var(--text-muted)]">
-                {lang}
-              </div>
-              <pre className="p-3 overflow-x-auto text-xs font-mono text-[var(--code-text)]">
-                <code>{codeBody}</code>
-              </pre>
-            </div>
-          );
+          return <CodeBlock key={idx} code={codeBody} language={lang} />;
         }
 
         const lines = block.split('\n');
