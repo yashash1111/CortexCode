@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bot, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, Volume2, VolumeX, Pause, Play, Sparkles, User } from 'lucide-react';
+import {
+  Bot, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, Volume2, VolumeX,
+  Pause, Play, Sparkles, User, Bookmark, Download, Edit3, Save
+} from 'lucide-react';
 import { useToast } from '@/providers/ToastProvider';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { CodeBlock } from '@/components/CodeBlock';
@@ -13,6 +16,7 @@ export interface MessageProps {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
+    mode?: string;
     timestamp: string;
     isStreaming?: boolean;
     isThinking?: boolean;
@@ -22,13 +26,44 @@ export interface MessageProps {
   };
   userName: string;
   onRegenerate?: () => void;
+  onUpdateContent?: (id: string, newContent: string) => void;
 }
 
-export default function MessageItem({ message, userName, onRegenerate }: MessageProps) {
+export default function MessageItem({ message, userName, onRegenerate, onUpdateContent }: MessageProps) {
   const toast = useToast();
   const tts = useTextToSpeech();
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(message.feedback || null);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content);
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  const handleSaveNote = () => {
+    try {
+      const key = 'cortexcode_saved_notes';
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      const next = [
+        { id: message.id, content: editedContent || message.content, savedAt: new Date().toISOString() },
+        ...existing.filter((n: { id: string }) => n.id !== message.id),
+      ].slice(0, 50);
+      localStorage.setItem(key, JSON.stringify(next));
+      setNoteSaved(true);
+      toast.showSuccess('Note Saved', 'Study notes saved to your workspace notes.');
+    } catch {
+      toast.showError('Save Failed', 'Could not save notes locally.');
+    }
+  };
+
+  const handleExportMarkdown = () => {
+    const blob = new Blob([editedContent || message.content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cortexcode-notes-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.showSuccess('Exported Markdown', 'Downloaded study notes as .md file.');
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -225,6 +260,11 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
                 <span className="font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
                   <Sparkles size={13} className="text-[var(--accent-primary)]" />
                   CortexCode AI
+                  {message.mode && (
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-[var(--accent-soft)] border border-[var(--accent-border)] text-[10px] font-semibold uppercase text-[var(--accent-primary)]">
+                      {message.mode}
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -250,6 +290,35 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
           </div>
         ) : isUser ? (
           <div className="text-sm font-medium whitespace-pre-wrap">{message.content}</div>
+        ) : isEditingNote ? (
+          <div className="space-y-2">
+            <textarea
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              rows={10}
+              className="w-full p-3 rounded-xl bg-[var(--input-bg)] border border-[var(--accent-border)] text-xs font-mono text-[var(--text-primary)] outline-none resize-y"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditingNote(false)}
+                className="px-3 py-1 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateContent?.(message.id, editedContent);
+                  setIsEditingNote(false);
+                  toast.showSuccess('Notes Updated', 'Your edited notes have been saved.');
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold cursor-pointer"
+              >
+                <Save size={12} /> Save Edit
+              </button>
+            </div>
+          </div>
         ) : (
           renderFormattedContent(message.content)
         )}
@@ -273,6 +342,35 @@ export default function MessageItem({ message, userName, onRegenerate }: Message
                 >
                   <RefreshCw size={12} /> Regenerate
                 </button>
+              )}
+
+              {message.mode === 'notes' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveNote}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--accent-primary)] transition-colors text-[11px] cursor-pointer"
+                  >
+                    <Bookmark size={12} /> {noteSaved ? 'Saved' : 'Save Notes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditedContent(message.content);
+                      setIsEditingNote((v) => !v);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[11px] cursor-pointer"
+                  >
+                    <Edit3 size={12} /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportMarkdown}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-[11px] cursor-pointer"
+                  >
+                    <Download size={12} /> Export .md
+                  </button>
+                </>
               )}
 
               {/* Read Aloud Controls */}

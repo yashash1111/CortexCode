@@ -57,7 +57,7 @@ All LLM operations route through `AIGateway`:
 - `addIndexJob()` enforces duplicate-job protection via `dedupeKey` (`repo:<repositoryId>`) and persists `IngestionJob` rows (`queued` -> `processing` -> `completed` | `failed`).
 - `indexing.worker.ts` chunks full file contents, generates real embeddings, writes `KnowledgeChunk` & `CodeChunk` rows, and updates progress percentage.
 - `pr_review.worker.ts` resolves real `PullRequest` records, decrypts GitHub OAuth tokens (`AES-256-GCM`), and calls `AIGateway`.
-- Job status and observability summaries are exposed via `/api/jobs` and `/api/jobs/observability/summary`.
+- Job status is exposed via `/api/jobs`.
 
 ---
 

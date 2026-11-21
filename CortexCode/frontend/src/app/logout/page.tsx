@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LogOut, ArrowLeft, ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
 import BackgroundVideo from '@/components/BackgroundVideo';
-import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { useToast } from '@/providers/ToastProvider';
 
 export default function LogoutConfirmationPage() {
@@ -35,7 +34,7 @@ export default function LogoutConfirmationPage() {
     <div className="min-h-screen flex flex-col items-center justify-center relative p-6 text-white font-sans overflow-hidden">
       <BackgroundVideo variant="auth" />
 
-      {/* Floating Header Back to Workspace & Theme Switcher */}
+      {/* Floating Header Back to Workspace */}
       <div className="absolute top-6 left-6 right-6 z-20 flex items-center justify-between">
         <Link
           href="/workspace"
@@ -43,7 +42,6 @@ export default function LogoutConfirmationPage() {
         >
           <ArrowLeft size={14} /> Back to Workspace
         </Link>
-        <ThemeSwitcher />
       </div>
 
       {/* Interactive Glass Logout Confirmation Card */}

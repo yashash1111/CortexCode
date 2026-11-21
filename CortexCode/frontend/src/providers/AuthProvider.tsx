@@ -7,9 +7,17 @@ import { apiClient } from '@/lib/apiClient';
 export interface User {
   id?: string;
   name: string;
+  username?: string | null;
   email: string;
+  emailVerified?: boolean;
   role?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
+  preferences?: {
+    theme?: 'light' | 'dark' | 'system';
+    accentColor?: 'purple' | 'blue' | 'emerald' | 'rose' | 'amber';
+    density?: 'comfortable' | 'compact';
+    reducedMotion?: boolean;
+  };
   createdAt?: string;
 }
 

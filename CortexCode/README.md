@@ -1,6 +1,6 @@
 # CortexCode — Full-Stack AI Developer Intelligence Workspace
 
-CortexCode is a unified developer intelligence platform combining **Docs & Spec RAG** (`/docs`), **GitHub Codebase Intelligence & AI PR Reviewer** (`/github`), and **Real-Time AI Observability** (`/observability`).
+CortexCode is a unified developer intelligence platform combining **Docs & Spec RAG** (`/docs`) and **GitHub Codebase Intelligence & AI PR Reviewer** (`/github`).
 
 ---
 

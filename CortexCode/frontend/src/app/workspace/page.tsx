@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import {
   Menu, Sparkles, ChevronDown, Activity, LogOut, X,
   BarChart3, TrendingUp, Zap, MessageSquare, Code2, FileText,
-  Search, BookOpen, Target, Bot, ShieldCheck, Award, Bell,
+  Search, Target, Bot, ShieldCheck, Briefcase, Bell,
   FolderKanban, Lightbulb, GraduationCap
 } from 'lucide-react';
 import Sidebar from '@/features/chat/Sidebar';
@@ -21,15 +20,15 @@ import { useToast } from '@/providers/ToastProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { getApiUrl } from '@/lib/apiConfig';
+import { apiClient } from '@/lib/apiClient';
 import { getAPIErrorMessage } from '@/lib/aiResponseEngine';
 import type { AttachedFile } from '@/features/chat/types';
 
 import CommandPalette, { WorkspaceTab } from '@/features/workspace/CommandPalette';
-import StudyMode from '@/features/workspace/StudyMode';
 import GoalTracker from '@/features/workspace/GoalTracker';
 import MultiAgentView from '@/features/workspace/MultiAgentView';
 import SecuritySettingsView from '@/features/workspace/SecuritySettingsView';
-import AssessmentHub from '@/features/assessments/AssessmentHub';
+import MockInterviewHub from '@/features/mock-interviews/MockInterviewHub';
 
 const createId = (prefix: string) => `${prefix}-${Date.now()}`;
 
@@ -80,6 +79,7 @@ function WorkspaceContent() {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
+    mode?: string;
     timestamp: string;
     isStreaming?: boolean;
     isThinking?: boolean;
@@ -154,7 +154,7 @@ function WorkspaceContent() {
   const [selectedModel, setSelectedModel] = useState('CortexCode AI (GPT-4o)');
   const [inputMessage, setInputMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const streamTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Settings Modal State
@@ -210,8 +210,55 @@ function WorkspaceContent() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isGenerating]);
 
+  // Sync conversations from Prisma backend when authenticated
+  useEffect(() => {
+    if (!user) return;
+    apiClient
+      .get('/api/conversations')
+      .then((res) => {
+        const grouped = res.data?.data as Record<string, WorkspaceConversation[]> | undefined;
+        if (!grouped) return;
+        const total = Object.values(grouped).reduce((acc, arr) => acc + arr.length, 0);
+        if (total > 0) {
+          setConversations(grouped);
+          const firstConv = Object.values(grouped).flat()[0];
+          if (firstConv && (!activeConvId || activeConvId === DEFAULT_CONV_ID)) {
+            setActiveConvId(firstConv.id);
+            const convMsgs = (firstConv as unknown as { messages?: WorkspaceMessage[] }).messages;
+            if (Array.isArray(convMsgs) && convMsgs.length > 0) {
+              setMessages(convMsgs);
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // Keep local state if backend fetch fails
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // Handle New Chat Creation
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
+    try {
+      const res = await apiClient.post('/api/conversations', {
+        title: 'New Conversation',
+        model: selectedModel,
+      });
+      const created = res.data?.data as WorkspaceConversation | undefined;
+      if (created?.id) {
+        setConversations(prev => ({
+          ...prev,
+          'Today': [created, ...(prev['Today'] || [])]
+        }));
+        setActiveConvId(created.id);
+        setMessages([]);
+        toast.showSuccess('New Conversation Started', 'Ask CortexCode AI anything!');
+        return;
+      }
+    } catch {
+      // Fallback to local id if offline
+    }
+
     const newId = 'conv-' + Date.now();
     const newConv = {
       id: newId,
@@ -232,9 +279,20 @@ function WorkspaceContent() {
   };
 
   // Handle Select Conversation
-  const handleSelectConversation = (id: string) => {
+  const handleSelectConversation = async (id: string) => {
     setActiveConvId(id);
-    // Load messages from localStorage immediately
+    try {
+      const res = await apiClient.get(`/api/conversations/${id}`);
+      const conv = res.data?.data as { title?: string; messages?: WorkspaceMessage[] } | undefined;
+      if (conv?.messages) {
+        setMessages(conv.messages);
+        if (conv.title) toast.showInfo('Conversation Loaded', `Opened "${conv.title}"`);
+        return;
+      }
+    } catch {
+      // Fallback to localStorage cache
+    }
+
     try {
       const raw = localStorage.getItem(`cortexcode_msgs_${id}`);
       setMessages(raw ? JSON.parse(raw) : []);
@@ -259,6 +317,7 @@ function WorkspaceContent() {
       });
       return updated;
     });
+    apiClient.patch(`/api/conversations/${id}`, { title: newTitle }).catch(() => {});
   };
 
   // Handle Delete Conversation
@@ -275,6 +334,7 @@ function WorkspaceContent() {
       setMessages([]);
     }
     try { localStorage.removeItem(`cortexcode_msgs_${id}`); } catch { /* ignore */ }
+    apiClient.delete(`/api/conversations/${id}`).catch(() => {});
   };
 
   // Auto-title a conversation from first user message
@@ -286,7 +346,7 @@ function WorkspaceContent() {
 
   // Handle Clear All Chats
   const handleClearAllChats = () => {
-    // Wipe all conversation message keys from localStorage
+    apiClient.delete('/api/conversations').catch(() => {});
     try {
       const keys = Object.keys(localStorage);
       keys.forEach(k => {
@@ -296,20 +356,29 @@ function WorkspaceContent() {
       });
     } catch { /* ignore */ }
 
-    const freshId = 'conv-1';
-    const freshConvs: Record<string, WorkspaceConversation[]> = {
-      'Today': [{ id: freshId, title: 'Welcome Chat', group: 'Today', model: selectedModel, updatedAt: new Date().toISOString() }],
+    setConversations({
+      'Today': [],
       'Yesterday': [], 'Previous 7 Days': [], 'Previous 30 Days': [], 'Older': []
-    };
-    setConversations(freshConvs);
-    setActiveConvId(freshId);
-    setMessages(DEFAULT_WELCOME_MSG);
+    });
+    setActiveConvId(null);
+    setMessages([]);
     toast.showSuccess('Cleared', 'All chats have been cleared.');
   };
 
   // Handle Archive Conversation
   const handleArchiveConversation = (id: string) => {
-    handleDeleteConversation(id);
+    setConversations(prev => {
+      const updated: Record<string, WorkspaceConversation[]> = {};
+      Object.keys(prev).forEach(group => {
+        updated[group] = prev[group].filter(c => c.id !== id);
+      });
+      return updated;
+    });
+    if (activeConvId === id) {
+      setActiveConvId(null);
+      setMessages([]);
+    }
+    apiClient.patch(`/api/conversations/${id}`, { archived: true }).catch(() => {});
   };
 
   // Handle Mode Change
@@ -325,55 +394,70 @@ function WorkspaceContent() {
     toast.showInfo('Mode Switched', `${modeNames[mode]} mode is now active`);
   };
 
-  // Handle Send Message & Progressive Streaming
-  const handleSendMessage = (customPrompt?: string, files?: AttachedFile[]) => {
+  // Handle Send Message with Real Backend SSE Streaming
+  const handleSendMessage = async (customPrompt?: string, files?: AttachedFile[]) => {
     const prompt = customPrompt || inputMessage;
     const currentFiles = files || attachedFiles;
     if (!prompt.trim() && currentFiles.length === 0) return;
     if (isGenerating) return;
 
-    let currentConvId = activeConvId;
+    let resolvedConvId = activeConvId;
 
-    // If no active conversation, create one
-    if (!currentConvId) {
-      const newId = createId('conv');
-      const newConv = {
-        id: newId,
-        title: 'New Conversation',
-        group: 'Today',
-        model: selectedModel,
-        updatedAt: new Date().toISOString()
-      };
-      setConversations(prev => ({
-        ...prev,
-        'Today': [newConv, ...(prev['Today'] || [])]
-      }));
-      setActiveConvId(newId);
-      currentConvId = newId;
+    if (!resolvedConvId || resolvedConvId === DEFAULT_CONV_ID || resolvedConvId.startsWith('conv-')) {
+      try {
+        const res = await apiClient.post('/api/conversations', {
+          title: 'New Conversation',
+          model: selectedModel,
+        });
+        const created = res.data?.data as WorkspaceConversation | undefined;
+        if (created?.id) {
+          const prevId = resolvedConvId;
+          setConversations(prev => ({
+            ...prev,
+            'Today': [created, ...(prev['Today'] || []).filter(c => c.id !== prevId)]
+          }));
+          setActiveConvId(created.id);
+          resolvedConvId = created.id;
+        }
+      } catch {
+        if (!resolvedConvId) {
+          const newId = createId('conv');
+          setConversations(prev => ({
+            ...prev,
+            'Today': [{ id: newId, title: 'New Conversation', group: 'Today', model: selectedModel, updatedAt: new Date().toISOString() }, ...(prev['Today'] || [])]
+          }));
+          setActiveConvId(newId);
+          resolvedConvId = newId;
+        }
+      }
     }
+    const targetConvId = resolvedConvId!;
 
-    const userMsg = {
+    const userMsg: WorkspaceMessage = {
       id: createId('msg'),
-      role: 'user' as const,
+      role: 'user',
+      mode: activeMode,
       content: prompt || `Analyze ${currentFiles.length === 1 ? currentFiles[0].name : `${currentFiles.length} files`}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       attachedFiles: currentFiles.length > 0 ? currentFiles : undefined
     };
 
     const tempAiMsgId = createId('msg-ai-temp');
-    const tempAiMsg = {
+    const tempAiMsg: WorkspaceMessage = {
       id: tempAiMsgId,
-      role: 'assistant' as const,
+      role: 'assistant',
+      mode: activeMode,
       content: '',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isThinking: true,
-      thinkingText: 'CortexCode AI is thinking'
+      isStreaming: true,
+      thinkingText: `Running ${activeMode.toUpperCase()} mode...`
     };
 
     setMessages(prev => {
       const userMessages = prev.filter(m => m.role === 'user');
-      if (userMessages.length === 0 && currentConvId) {
-        setTimeout(() => autoTitleConversation(currentConvId!, userMsg.content), 0);
+      if (userMessages.length === 0 && targetConvId) {
+        setTimeout(() => autoTitleConversation(targetConvId, userMsg.content), 0);
       }
       return [...prev, userMsg, tempAiMsg];
     });
@@ -382,59 +466,127 @@ function WorkspaceContent() {
     setAttachedFiles([]);
     setIsGenerating(true);
 
-    // Update stats
     setUsageStats(prev => ({
       ...prev,
       debuggingSessions: activeMode === 'debug' ? prev.debuggingSessions + 1 : prev.debuggingSessions,
     }));
 
-    // Build file context for AI
     const fileContext = currentFiles.length > 0 ? buildFileContext(currentFiles) : '';
     const fullPrompt = fileContext ? `${fileContext}\n\nUser request: ${userMsg.content}` : userMsg.content;
 
-    // Call Backend API with 60s timeout
-    axios.post(
-      `${getApiUrl()}/api/conversations/${currentConvId}/messages`,
-      {
-        content: fullPrompt,
-        mode: activeMode,
-        attachments: currentFiles
-      },
-      { timeout: 60000, withCredentials: true }
-    ).then((res) => {
-      const aiText = res.data?.data?.aiResponse?.content;
-      if (aiText) {
-        startTypewriterStream(aiText, tempAiMsgId);
-      } else {
-        const errorMsg = res.data?.error?.message || getAPIErrorMessage();
-        startTypewriterStream(errorMsg, tempAiMsgId);
-      }
-    }).catch(() => {
-      // Check for unified /api/chat fallback
-      axios.post(
-        `${getApiUrl()}/api/chat`,
-        {
-          message: fullPrompt,
-          conversationId: currentConvId,
-          mode: activeMode
-        },
-        { timeout: 60000, withCredentials: true }
-      ).then((chatRes) => {
-        const text = chatRes.data?.data?.content;
-        if (text) {
-          startTypewriterStream(text, tempAiMsgId);
-        } else {
-          const errorMsg = chatRes.data?.error?.message || getAPIErrorMessage();
-          startTypewriterStream(errorMsg, tempAiMsgId);
-        }
-      }).catch((chatErr) => {
-        const errorMsg = chatErr?.response?.data?.error?.message ||
-          (chatErr?.code === 'ECONNABORTED'
-            ? 'Request timed out. Please try again.'
-            : getAPIErrorMessage());
-        startTypewriterStream(errorMsg, tempAiMsgId);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const resp = await fetch(`${getApiUrl()}/api/conversations/${targetConvId}/messages/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        signal: controller.signal,
+        body: JSON.stringify({
+          content: fullPrompt,
+          mode: activeMode,
+          model: selectedModel,
+          attachments: currentFiles,
+        }),
       });
-    });
+
+      if (!resp.ok || !resp.body) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson?.error?.message || getAPIErrorMessage());
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() || '';
+
+        for (const chunk of chunks) {
+          const lines = chunk.split('\n');
+          let eventName = 'message';
+          let dataStr = '';
+          for (const line of lines) {
+            if (line.startsWith('event:')) eventName = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (eventName === 'activity' && parsed.detail) {
+              setMessages(prev =>
+                prev.map(m => (m.id === tempAiMsgId ? { ...m, thinkingText: parsed.detail } : m))
+              );
+            } else if (eventName === 'message_start' && parsed.conversationId) {
+              setActiveConvId(parsed.conversationId);
+              if (parsed.title) {
+                handleRenameConversation(parsed.conversationId, parsed.title);
+              }
+            } else if (eventName === 'token' && parsed.content) {
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === tempAiMsgId
+                    ? { ...m, isThinking: false, isStreaming: true, content: m.content + parsed.content }
+                    : m
+                )
+              );
+            } else if (eventName === 'message_complete') {
+              const tokens = Number(parsed?.usage?.totalTokens || 0);
+              setUsageStats(prev => ({
+                ...prev,
+                tokensUsed: prev.tokensUsed + tokens,
+                snippetsGenerated: prev.snippetsGenerated + 1,
+              }));
+              setMessages(prev =>
+                prev.map(m =>
+                  m.id === tempAiMsgId
+                    ? {
+                        ...(parsed.message || m),
+                        isThinking: false,
+                        isStreaming: false,
+                        mode: activeMode,
+                      }
+                    : m
+                )
+              );
+            } else if (eventName === 'error') {
+              throw new Error(parsed.message || getAPIErrorMessage());
+            }
+          } catch (innerErr) {
+            if (innerErr instanceof Error && eventName === 'error') throw innerErr;
+          }
+        }
+      }
+    } catch (err: unknown) {
+      const e = err as { name?: string; message?: string };
+      if (e?.name === 'AbortError') {
+        setMessages(prev =>
+          prev.map(m => (m.id === tempAiMsgId ? { ...m, isThinking: false, isStreaming: false } : m))
+        );
+      } else {
+        const errorMsg = e?.message || getAPIErrorMessage();
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === tempAiMsgId
+              ? { ...m, isThinking: false, isStreaming: false, content: m.content || `⚠️ ${errorMsg}` }
+              : m
+          )
+        );
+      }
+    } finally {
+      setIsGenerating(false);
+      abortControllerRef.current = null;
+      setMessages(prev =>
+        prev.map(m => (m.id === tempAiMsgId ? { ...m, isThinking: false, isStreaming: false } : m))
+      );
+    }
   };
 
   // Build file context string for AI prompt
@@ -463,70 +615,10 @@ function WorkspaceContent() {
     return parts.join('\n\n');
   };
 
-  // Start Progressive Typewriter Response Streaming
-  const startTypewriterStream = (fullResponse: string, existingAiMsgId?: string) => {
-    const aiMsgId = existingAiMsgId || createId('msg-ai');
-
-    setMessages(prev => {
-      const existingIdx = prev.findIndex(m => m.id === aiMsgId);
-      if (existingIdx !== -1) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          isThinking: false,
-          isStreaming: true,
-          content: ''
-        };
-        return updated;
-      }
-      return [
-        ...prev,
-        {
-          id: aiMsgId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isStreaming: true
-        }
-      ];
-    });
-
-    // Token Usage Counter Update
-    const tokenCost = Math.floor(fullResponse.split(' ').length * 1.3);
-    setUsageStats(prev => ({ ...prev, tokensUsed: prev.tokensUsed + tokenCost }));
-
-    let currentIndex = 0;
-    const chars = fullResponse.split('');
-
-    streamTimerRef.current = setInterval(() => {
-      // Stream 3 chars at a time for faster feel
-      currentIndex = Math.min(currentIndex + 3, chars.length);
-      const currentText = chars.slice(0, currentIndex).join('');
-
-      setMessages(prev => {
-        const updated = [...prev];
-        const lastIdx = updated.findIndex(m => m.id === aiMsgId);
-        if (lastIdx !== -1) {
-          updated[lastIdx] = {
-            ...updated[lastIdx],
-            content: currentText,
-            isStreaming: currentIndex < chars.length
-          };
-        }
-        return updated;
-      });
-
-      if (currentIndex >= chars.length) {
-        if (streamTimerRef.current) clearInterval(streamTimerRef.current);
-        setIsGenerating(false);
-        setUsageStats(prev => ({ ...prev, snippetsGenerated: prev.snippetsGenerated + 1 }));
-      }
-    }, 15);
-  };
-
-  // Stop Generating Button Handler
+  // Stop Generating Button Handler (aborts active SSE stream)
   const handleStopGenerating = () => {
-    if (streamTimerRef.current) clearInterval(streamTimerRef.current);
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     setIsGenerating(false);
     toast.showInfo('Generation Stopped', 'AI response generation paused.');
   };
@@ -642,11 +734,10 @@ function WorkspaceContent() {
         <div className="flex md:hidden overflow-x-auto px-3 py-2 bg-[var(--bg-secondary)]/70 border-b border-[var(--border-default)] gap-1.5 shrink-0 scrollbar-none">
           {[
             { id: 'chat' as WorkspaceTab, label: 'AI Chat', icon: MessageSquare },
-            { id: 'study' as WorkspaceTab, label: 'Study Mode', icon: BookOpen },
             { id: 'goals' as WorkspaceTab, label: 'Goal Roadmap', icon: Target },
             { id: 'agents' as WorkspaceTab, label: 'Multi-Agent', icon: Bot },
             { id: 'security' as WorkspaceTab, label: 'Security', icon: ShieldCheck },
-            { id: 'assessments' as WorkspaceTab, label: 'Assessments', icon: Award },
+            { id: 'mock-interview' as WorkspaceTab, label: 'AI Mock Interview', icon: Briefcase },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeWorkspaceTab === tab.id;
@@ -668,15 +759,13 @@ function WorkspaceContent() {
         </div>
 
         {/* DYNAMIC TAB CANVAS */}
-        {activeWorkspaceTab === 'study' && <StudyMode />}
-
         {activeWorkspaceTab === 'goals' && <GoalTracker />}
 
         {activeWorkspaceTab === 'agents' && <MultiAgentView />}
 
         {activeWorkspaceTab === 'security' && <SecuritySettingsView />}
 
-        {activeWorkspaceTab === 'assessments' && <AssessmentHub />}
+        {activeWorkspaceTab === 'mock-interview' && <MockInterviewHub />}
 
         {activeWorkspaceTab === 'chat' && (
           <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
@@ -733,7 +822,7 @@ function WorkspaceContent() {
                       label: 'Learn & Grow',
                       icon: GraduationCap,
                       active: activeMode === 'notes',
-                      onClick: () => setActiveWorkspaceTab('study'),
+                      onClick: () => handleModeChange('notes'),
                     },
                   ].map((pill) => {
                     const Icon = pill.icon;
@@ -766,6 +855,9 @@ function WorkspaceContent() {
                       message={msg}
                       userName={userProfile.name}
                       onRegenerate={() => handleSendMessage(messages.filter(m => m.role === 'user').slice(-1)[0]?.content || 'Explain again')}
+                      onUpdateContent={(id, newContent) =>
+                        setMessages(prev => prev.map(m => (m.id === id ? { ...m, content: newContent } : m)))
+                      }
                     />
                   ))}
                   <div ref={chatEndRef} />

@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Plus, Search, MessageSquare, MoreVertical, Edit2, Trash2, Archive,
-  Settings, LogOut, ChevronLeft, ChevronRight, X, Home, BookOpen,
-  Target, Bot, ShieldCheck, Award, GitBranch, Code2, GitPullRequest,
-  FileText, Activity, Shield
+  Settings, LogOut, ChevronLeft, ChevronRight, X, Home,
+  Target, Bot, ShieldCheck, Briefcase, GitBranch, Code2, GitPullRequest,
+  FileText, Shield, User
 } from 'lucide-react';
 import { useToast } from '@/providers/ToastProvider';
 import type { WorkspaceTab } from '@/features/workspace/CommandPalette';
@@ -65,6 +66,7 @@ export default function Sidebar({
   activeWorkspaceTab = 'chat',
   onSelectWorkspaceTab,
 }: SidebarProps) {
+  const pathname = usePathname();
   const toast = useToast();
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -203,11 +205,10 @@ export default function Sidebar({
                 <>
                   {[
                     { id: 'chat' as WorkspaceTab, label: 'AI Chat', icon: MessageSquare },
-                    { id: 'study' as WorkspaceTab, label: 'Study Mode', icon: BookOpen },
                     { id: 'goals' as WorkspaceTab, label: 'Goal Roadmap', icon: Target },
                     { id: 'agents' as WorkspaceTab, label: 'Multi-Agent', icon: Bot },
                     { id: 'security' as WorkspaceTab, label: 'Security', icon: ShieldCheck },
-                    { id: 'assessments' as WorkspaceTab, label: 'Assessments', icon: Award },
+                    { id: 'mock-interview' as WorkspaceTab, label: 'AI Mock Interview', icon: Briefcase },
                   ].map((item) => {
                     const Icon = item.icon;
                     const active = activeWorkspaceTab === item.id;
@@ -244,7 +245,6 @@ export default function Sidebar({
                 { href: '/github', label: 'Code Analysis', icon: Code2 },
                 { href: '/github', label: 'PR Review', icon: GitPullRequest },
                 { href: '/docs', label: 'Documentation', icon: FileText, badge: 'New' },
-                { href: '/observability', label: 'Observability', icon: Activity },
               ].map((nav) => {
                 const Icon = nav.icon;
                 return (
@@ -283,6 +283,22 @@ export default function Sidebar({
                   {!isCollapsed && <span>AI Providers (Admin)</span>}
                 </Link>
               )}
+
+              <Link
+                href="/profile"
+                onClick={() => { if (isMobileOpen) onMobileClose(); }}
+                title="Profile"
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                  isCollapsed ? 'justify-center' : ''
+                } ${
+                  pathname?.startsWith('/profile')
+                    ? 'bg-gradient-to-r from-violet-600/25 to-indigo-600/15 border border-[var(--accent-border)] text-[var(--text-primary)] font-semibold shadow-sm'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-item-hover)] border border-transparent'
+                }`}
+              >
+                <User size={15} className={pathname?.startsWith('/profile') ? 'text-[var(--accent-primary)] shrink-0' : 'text-[var(--text-muted)] shrink-0'} />
+                {!isCollapsed && <span>Profile</span>}
+              </Link>
 
               <button
                 type="button"

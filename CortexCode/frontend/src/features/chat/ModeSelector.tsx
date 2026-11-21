@@ -49,27 +49,35 @@ const MODES: { id: ChatMode; label: string; icon: React.ReactNode; color: string
 ];
 
 export default function ModeSelector({ activeMode, onModeChange }: ModeSelectorProps) {
+  const current = MODES.find((m) => m.id === activeMode) || MODES[0];
+
   return (
-    <div className="flex items-center justify-center gap-1.5 px-4 py-2 overflow-x-auto scrollbar-none shrink-0">
-      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider shrink-0 mr-1">Mode</span>
-      {MODES.map((mode) => {
-        const isActive = activeMode === mode.id;
-        return (
-          <button
-            key={mode.id}
-            onClick={() => onModeChange(mode.id)}
-            title={mode.description}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-150 shrink-0 cursor-pointer ${
-              isActive
-                ? `bg-gradient-to-r ${mode.color} text-white shadow-md`
-                : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:border-[var(--accent-border)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {mode.icon}
-            {mode.label}
-          </button>
-        );
-      })}
+    <div className="flex items-center justify-between gap-2 px-4 py-2 overflow-x-auto scrollbar-none shrink-0">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider shrink-0 mr-1">Mode</span>
+        {MODES.map((mode) => {
+          const isActive = activeMode === mode.id;
+          return (
+            <button
+              key={mode.id}
+              type="button"
+              onClick={() => onModeChange(mode.id)}
+              title={mode.description}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-150 shrink-0 cursor-pointer ${
+                isActive
+                  ? `bg-gradient-to-r ${mode.color} text-white shadow-md`
+                  : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-default)] hover:bg-[var(--bg-hover)] hover:border-[var(--accent-border)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              {mode.icon}
+              {mode.label}
+            </button>
+          );
+        })}
+      </div>
+      <span className="hidden lg:inline text-[11px] text-[var(--text-muted)] shrink-0">
+        {current.description}
+      </span>
     </div>
   );
 }

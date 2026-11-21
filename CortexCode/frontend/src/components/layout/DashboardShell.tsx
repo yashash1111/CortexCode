@@ -6,12 +6,12 @@ import { usePathname } from 'next/navigation';
 import {
   BookOpen,
   GitBranch,
-  Activity,
   Menu,
   X,
   ArrowUpRight,
   Layers,
   Shield,
+  User,
 } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
@@ -19,7 +19,6 @@ import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 const NAV_ITEMS = [
   { href: '/docs', label: 'Docs', icon: BookOpen, description: 'Document Knowledge Base' },
   { href: '/github', label: 'GitHub', icon: GitBranch, description: 'Repositories & PRs' },
-  { href: '/observability', label: 'Observability', icon: Activity, description: 'Health, Jobs & Usage' },
 ];
 
 export function DashboardShell({
@@ -89,6 +88,18 @@ export function DashboardShell({
         })}
 
         <div className="pt-4 mt-4 border-t border-[var(--sidebar-border)] space-y-1">
+          <Link
+            href="/profile"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              pathname.startsWith('/profile')
+                ? 'bg-[var(--sidebar-item-active)] text-[var(--accent-primary)] border border-[var(--accent-border)] font-semibold'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-item-hover)]'
+            }`}
+          >
+            <User className="w-3.5 h-3.5" />
+            Profile
+          </Link>
           {user?.role === 'ADMIN' && (
             <Link
               href="/admin/ai-providers"

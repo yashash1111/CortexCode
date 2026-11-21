@@ -43,6 +43,14 @@ interface ComposerProps {
   tokensUsed?: number;
 }
 
+const MODE_PLACEHOLDERS: Record<ChatMode, string> = {
+  chat: 'Ask CortexCode anything... (Use @ to add files, / for commands)',
+  debug: 'Paste your code and error message to debug...',
+  explain: 'What concept or code should I explain?',
+  notes: 'Enter a topic or attach study material...',
+  review: 'Attach code or a repository to review...',
+};
+
 const COMPOSER_MODELS = [
   'CortexCode AI (GPT-4o)',
   'CortexCode AI (Gemini Pro)',
@@ -315,7 +323,7 @@ export default function Composer({
           placeholder={
             attachedFiles.length > 0
               ? `Ask about ${attachedFiles.length === 1 ? attachedFiles[0].name : `${attachedFiles.length} files`}...`
-              : 'Ask CortexCode anything... (Use @ to add files, / for commands)'
+              : MODE_PLACEHOLDERS[activeMode]
           }
           className="w-full px-4 pt-3.5 pb-2 bg-transparent text-sm font-medium text-[var(--text-primary)] placeholder-[var(--input-placeholder)] focus:outline-none resize-none overflow-y-auto max-h-48 font-sans"
         />
